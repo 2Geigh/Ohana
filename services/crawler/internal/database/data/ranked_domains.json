@@ -6303,5 +6303,6 @@
 	{ "domain": "amazon.com" },
 	{ "domain": "amazon.co" },
 	{ "domain": "amazon.com.cn" },
-	{ "domain": "amazon.com.sg" }
+	{ "domain": "amazon.com.sg" },
+	{ "domain": "office.com" }
 ]

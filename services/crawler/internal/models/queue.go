@@ -42,7 +42,7 @@ func (q *LocalQueue) Enqueue(urls []Url, db *sql.DB) error {
 
 	for _, url := range urls {
 		stmt, err := tx.Prepare(
-			`INSERT INTO link_queue (hyperlink) VALUES ($1);`,
+			`INSERT INTO crawler_queue (hyperlink) VALUES ($1);`,
 		)
 		if err != nil {
 			return fmt.Errorf("prepare statement failed: %w", err)

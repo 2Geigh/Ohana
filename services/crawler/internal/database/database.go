@@ -59,14 +59,14 @@ func DequeueLinks(db *sql.DB, mu *sync.Mutex) ([]models.Url, error) {
 	rows, err := tx.Query(
 		`WITH first_value AS (
 			SELECT fqdn AS value
-			FROM link_queue
+			FROM crawler_queue
 			ORDER BY id
 			LIMIT 1
 		),
 
 		rows_to_dequeue AS MATERIALIZED (
 			SELECT t.id
-			FROM link_queue AS t
+			FROM crawler_queue AS t
 			CROSS JOIN first_value AS f
 			WHERE t.fqdn IS NOT DISTINCT FROM f.value
 			ORDER BY t.id
@@ -74,7 +74,7 @@ func DequeueLinks(db *sql.DB, mu *sync.Mutex) ([]models.Url, error) {
 		),
 
 		deleted AS (
-			DELETE FROM link_queue AS t
+			DELETE FROM crawler_queue AS t
 			USING rows_to_dequeue AS d
 			WHERE t.id = d.id
 			RETURNING t.id, t.hyperlink
@@ -144,7 +144,7 @@ func EnqueueLinks(urls []models.Url, db *sql.DB, mu *sync.Mutex) error {
 		}
 
 		stmt, err := tx.Prepare(
-			`INSERT INTO link_queue (
+			`INSERT INTO crawler_queue (
 				hyperlink, fqdn
 			) VALUES ($1, $2)
 			ON CONFLICT (hyperlink) DO NOTHING;`,
