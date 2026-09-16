@@ -1,15 +1,19 @@
 FROM python:3-alpine
 
+# Get `uv` package manager
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
 
 ENV PATH="/venv/bin:$PATH"
 
 COPY . .
 
-RUN python3 -m venv /venv
+# Disable development dependencies
+ENV UV_NO_DEV=1
 
-RUN pip install -r requirements.txt
+RUN uv sync --locked
 
 EXPOSE 3001
 
-CMD ["/venv/bin/python3", "main.py"]
+CMD ["uv", "run", "./main.py"]

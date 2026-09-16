@@ -1,9 +1,8 @@
-import db
+import asyncio
 import time
 import logging
 import sys
 
-local_queue: list[str] = []
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,18 +13,34 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-def index() -> RuntimeError:
+
+# async def runIndexer(conn: connection) -> RuntimeError:
+#     while True:
+#         # Get item with the oldest time_since_last_indexed
+#         cur = conn.cursor()
+
+        
+
+#         # Index it
+        
+
+#         logger.info("Still indexing web pages...")
+#         time.sleep(1.25)
+
+async def main() -> None:
+
+    # logger.log("Hi!")
+
     while True:
         logger.info("Still indexing web pages...")
         time.sleep(1.25)
 
-def main() -> None:
-    try:
-        conn = db.connect()
-        index()
+    # try:
+        # conn = db.connect()
+        # await runIndexer(conn)
 
-    finally:
-        db.disconnect(conn)
+    # finally:
+        # db.disconnect(conn)
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())

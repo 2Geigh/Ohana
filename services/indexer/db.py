@@ -1,7 +1,6 @@
-from psycopg2._psycopg import connection
 from typing import Optional
 import os
-import psycopg2
+import asyncpg
 
 def connect() -> Optional[connection]:
     """ Connect to the PostgreSQL database server """
@@ -10,7 +9,7 @@ def connect() -> Optional[connection]:
 
     try:
         print('Connecting to the PostgreSQL database...')
-        conn = psycopg2.connect(
+        conn = .connect(
             dbname=os.getenv("DB_NAME"),
             user=os.getenv("DB_USERNAME"),
             password=os.getenv("DB_PASSWORD"),
