@@ -6304,5 +6304,8 @@
 	{ "domain": "amazon.co" },
 	{ "domain": "amazon.com.cn" },
 	{ "domain": "amazon.com.sg" },
-	{ "domain": "office.com" }
+	{ "domain": "office.com" },
+	{ "domain": "atlassian.com" },
+	{ "domain": "gofundme.com" },
+	{ "domain": "kickstarter.com" }
 ]

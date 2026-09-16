@@ -5,8 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"strings"
+	"sync"
 	"time"
 
 	"github.com/lib/pq"
@@ -174,12 +173,44 @@ func (p *Webpage) Scan(value any) error {
 	return json.Unmarshal(b, &p)
 }
 
-func (p *Webpage) EnqueueToIndexer() error {
-	resp, err := http.Post("http://indexer:3001/queue", "text/plain", strings.NewReader(string(p.Url)))
+func (p *Webpage) EnqueueToIndexer(db *sql.DB, mu *sync.Mutex) error {
+	var (
+		pageId int64
+		siteId int64
+	)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	tx, err := db.Begin()
 	if err != nil {
-		return fmt.Errorf("POST to indexer failed: %w", err)
+		return fmt.Errorf("begin tx failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer tx.Rollback()
+
+	err = tx.QueryRow(
+		`SELECT id, site_id
+		FROM pages
+		WHERE link = $1;`, p.Url).Scan(&pageId, &siteId)
+	if err != nil {
+		return fmt.Errorf("SELECT page_id and site_id failed: %w", err)
+	}
+
+	_, err = tx.Exec(
+		`INSERT INTO indexer_queue (
+			page_id,
+			site_id
+		) VALUES (
+			$1, $2
+		);`, pageId, siteId)
+	if err != nil {
+		return fmt.Errorf("INSERT INTO indexer_queue failed: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("commit tx failed: %w", err)
+	}
 
 	return nil
 }
