@@ -17,6 +17,8 @@ Each of the following will increase ranking:
 - independent / Fediversal hosting
 - Accessible, semantic HTML
 
-[^1]: Either coded directly, using a CMS, or a website building platform (eg. Wix, Cardd).
+For efficiency's sake, *we ignore any web page directly hosted on the top 1000 most visited web domains.*
+
+[^1]: Either coded directly, using a CMS, or a website building platform (eg. Wix, Carrd).
 
 [^2]: Indirect *hosting* is permitted *(ex: a Blogger blog)*.
