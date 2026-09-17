@@ -68,6 +68,7 @@ var (
 		models.Url("https://comicfury.com/").TrimTrailingSlash(),
 		models.Url("https://baccyflap.com/noai/").TrimTrailingSlash(),
 		models.Url("https://baccyflap.com/rsp/").TrimTrailingSlash(),
+		models.Url("https://www.oocities.org/").TrimTrailingSlash(),
 	}
 )
 

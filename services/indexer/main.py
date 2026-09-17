@@ -56,7 +56,7 @@ async def main() -> None:
             result: asyncpg.protocol.record.Record = values[0]
             html = next(result.values())
             
-            soup = BeautifulSoup(html, 'html.parser')
+            soup = BeautifulSoup(html, 'lxml')
 
             PRETTY_HTML = soup.prettify()
             text = soup.get_text()
@@ -69,10 +69,6 @@ async def main() -> None:
                 # Append webpage id to arrays in each keyword's key-value db entry
                 # Delete this page from indexer queue
                 # Add this page to ranker queue
-
-            print(CLEANED_TEXT)
-
-            break
     
     except Exception as error:
         print(f"Error: {error}")
