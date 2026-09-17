@@ -62,7 +62,7 @@ async def main() -> None:
             text = soup.get_text()
             trimmed_text = text.strip() # Removes leading and trailing whitespace
             CLEANED_TEXT = ' '.join(trimmed_text.split()) # Removes excessive in-text whitespace
-
+            print(CLEANED_TEXT)
             # Get keywords from CLEANED_TEXT
 
             # In a single transaction

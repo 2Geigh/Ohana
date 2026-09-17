@@ -15,7 +15,9 @@ services:
         networks:
             - infrastructure
             - userspace
-        image: postgres:18.4-alpine
+        build:
+            context: ./services/db
+            dockerfile: ./dockerfile
         container_name: ohana-db
         environment:
             PGUSER: ${DB_USERNAME}
