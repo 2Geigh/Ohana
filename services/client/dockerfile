@@ -12,7 +12,6 @@ RUN apk add --no-cache \
     && apk del .php-build-deps
 
 COPY composer.json composer.lock ./
-COPY vendor ./vendor
 COPY public ./public
 
 RUN npm install --global sass \
