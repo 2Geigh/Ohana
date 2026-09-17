@@ -1,7 +1,9 @@
 import asyncio
+import asyncpg
 import time
 import logging
 import sys
+import os
 
 
 logging.basicConfig(
@@ -28,19 +30,15 @@ logger = logging.getLogger(__name__)
 #         time.sleep(1.25)
 
 async def main() -> None:
+    try:
+        conn = await asyncpg.connect(user=os.getenv("DB_USERNAME"), password=os.getenv("DB_PASSWORD"), database=os.getenv("DB_NAME"), host=os.getenv("DB_HOST"))
+        
+        while True:
+            logger.info("Still indexing web pages...")
+            time.sleep(1.25)
 
-    # logger.log("Hi!")
-
-    while True:
-        logger.info("Still indexing web pages...")
-        time.sleep(1.25)
-
-    # try:
-        # conn = db.connect()
-        # await runIndexer(conn)
-
-    # finally:
-        # db.disconnect(conn)
+    finally:
+        conn.close()
 
 if __name__ == '__main__':
     asyncio.run(main())
