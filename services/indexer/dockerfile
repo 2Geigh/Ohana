@@ -1,17 +1,23 @@
-FROM python:3-alpine
+FROM python:3-slim
 
-# Get `uv` package manager
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-ENV PATH="/venv/bin:$PATH"
+ENV UV_PROJECT_ENVIRONMENT=/app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+ENV UV_NO_DEV=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+COPY pyproject.toml uv.lock ./
+
+RUN uv sync --locked --no-install-project \
+    && uv cache clean
 
 COPY . .
 
-# Disable development dependencies
-ENV UV_NO_DEV=1
+RUN uv sync --locked \
+    && uv cache clean
 
-RUN uv sync --locked
-
-CMD ["uv", "run", "./main.py"]
+CMD ["python", "main.py"]
