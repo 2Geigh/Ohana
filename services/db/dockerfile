@@ -1,4 +1,19 @@
-FROM pgvector/pgvector:pg18-trixie
+FROM postgres:18.4-alpine
+
+ARG PGVECTOR_VERSION=0.8.6
+
+RUN apk add --no-cache --virtual .build-deps \
+        alpine-sdk \
+        git \
+        clang21 \
+        llvm21 \
+    && git clone --branch "v${PGVECTOR_VERSION}" --depth 1 \
+        https://github.com/pgvector/pgvector.git /tmp/pgvector \
+    && cd /tmp/pgvector \
+    && make PG_CONFIG=/usr/local/bin/pg_config \
+    && make PG_CONFIG=/usr/local/bin/pg_config install \
+    && rm -rf /tmp/pgvector \
+    && apk del .build-deps
 
 EXPOSE 5432
 
