@@ -1,0 +1,3 @@
+{
+	"python.defaultInterpreterPath": "${workspaceFolder}/services/indexer/.venv/bin/python"
+}

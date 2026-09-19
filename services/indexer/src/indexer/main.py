@@ -21,22 +21,22 @@ async def main() -> None:
     try:
         conn = await asyncpg.connect(
             user=os.getenv("DB_USERNAME"),
-            password=os.getenv("DB_PASSWORD"), 
-            database=os.getenv("DB_NAME"), 
-            host=os.getenv("DB_HOST"))
-        
+            password=os.getenv("DB_PASSWORD"),
+            database=os.getenv("DB_NAME"),
+            host=os.getenv("DB_HOST"),
+        )
+
         while True:
-            
             values: list = await conn.fetch(
-                'SELECT * FROM indexer_queue ORDER BY id ASC LIMIT 1;'
+                "SELECT * FROM indexer_queue ORDER BY id ASC LIMIT 1;"
             )
 
             if len(values) < 1:
                 await asyncio.sleep(1)
                 continue
 
-            pageId = values[0]['page_id']
-            siteId = values[0]['site_id']
+            pageId = values[0]["page_id"]
+            siteId = values[0]["site_id"]
 
             values: list = await conn.fetch(
                 """
@@ -47,7 +47,7 @@ async def main() -> None:
                 WHERE id = $1
                 LIMIT 1;
                 """,
-                pageId
+                pageId,
             )
 
             if len(values) < 1:
@@ -55,21 +55,23 @@ async def main() -> None:
 
             result: asyncpg.protocol.record.Record = values[0]
             html = next(result.values())
-            
-            soup = BeautifulSoup(html, 'lxml')
+
+            soup = BeautifulSoup(html, "lxml")
 
             PRETTY_HTML = soup.prettify()
             text = soup.get_text()
-            trimmed_text = text.strip() # Removes leading and trailing whitespace
-            CLEANED_TEXT = ' '.join(trimmed_text.split()) # Removes excessive in-text whitespace
-            print(CLEANED_TEXT)
+            trimmed_text = text.strip()  # Removes leading and trailing whitespace
+            CLEANED_TEXT = " ".join(
+                trimmed_text.split()
+            )  # Removes excessive in-text whitespace
+            # print(CLEANED_TEXT)
             # Get keywords from CLEANED_TEXT
 
             # In a single transaction
-                # Append webpage id to arrays in each keyword's key-value db entry
-                # Delete this page from indexer queue
-                # Add this page to ranker queue
-    
+            # Append webpage id to arrays in each keyword's key-value db entry
+            # Delete this page from indexer queue
+            # Add this page to ranker queue
+
     except Exception as error:
         print(f"Error: {error}")
         traceback.print_exc()
@@ -78,5 +80,6 @@ async def main() -> None:
         if conn is not None:
             await conn.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())
