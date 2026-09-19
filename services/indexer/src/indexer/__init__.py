@@ -3,6 +3,7 @@ import asyncpg
 import logging
 import os
 import sys
+import time
 import traceback
 from bs4 import BeautifulSoup
 from sentence_transformers import SentenceTransformer
@@ -20,6 +21,15 @@ logger = logging.getLogger(__name__)
 
 async def indexer() -> None:
     try:
+        logger.info("Loading embedding model...")
+
+        start = time.perf_counter()
+        model = SentenceTransformer(
+            "sentence-transformers/all-MiniLM-L6-v2", device="cpu"
+        )
+
+        logger.info("Model loaded in %.1f seconds", time.perf_counter() - start)
+
         conn = await asyncpg.connect(
             user=os.getenv("DB_USERNAME"),
             password=os.getenv("DB_PASSWORD"),
@@ -40,14 +50,12 @@ async def indexer() -> None:
             siteId = values[0]["site_id"]
 
             values: list = await conn.fetch(
-                """
-                SELECT (
+                """SELECT (
                     response_body
                 )
                 FROM pages
                 WHERE id = $1
-                LIMIT 1;
-                """,
+                LIMIT 1;""",
                 pageId,
             )
 
@@ -69,17 +77,59 @@ async def indexer() -> None:
             # print(CLEANED_TEXT)
             # Get keywords from CLEANED_TEXT
 
-            model = SentenceTransformer("tencent/EVIE-8B")
+            logger.info(
+                "Encoding page %s: %d characters",
+                pageId,
+                len(CLEANED_TEXT),
+            )
 
-            embedding = model.encode(CLEANED_TEXT)
-            print("embedding.shape:", embedding.shape)
-            break
+            start = time.perf_counter()
 
+            embedding = model.encode(
+                [CLEANED_TEXT],
+                show_progress_bar=True,
+                convert_to_numpy=True,
+            )
 
-            # In a single transaction
-            # Append webpage id to arrays in each keyword's key-value db entry
-            # Delete this page from indexer queue
-            # Add this page to ranker queue
+            logger.info(
+                "Embedding completed in %.1f seconds; shape=%s",
+                time.perf_counter() - start,
+                embedding.shape,
+            )
+
+            # Convert shape (1, N) to shape (N,)
+            # where N is the number of dimensions
+            embedding_values = embedding[0].tolist()
+
+            # Convert to pgvector text syntax
+            embedding_literal = (
+                "[" + ",".join(str(float(value)) for value in embedding_values) + "]"
+            )
+
+            async with conn.transaction():
+                await conn.execute(
+                    """UPDATE pages
+                    SET embedding = $1 
+                    WHERE id = $2;""",
+                    embedding_literal,
+                    pageId,
+                )
+
+                await conn.execute(
+                    """DELETE FROM indexer_queue
+                    WHERE page_id = $1;""",
+                    pageId,
+                )
+
+                await conn.execute(
+                    """INSERT INTO ranking_engine_queue
+                    (page_id, site_id)
+                    VALUES ($1, $2);""",
+                    pageId,
+                    siteId,
+                )
+
+                # Append webpage id to arrays in each keyword's key-value db entry
 
     except Exception as error:
         print(f"Error: {error}")
@@ -89,9 +139,10 @@ async def indexer() -> None:
         if conn is not None:
             await conn.close()
 
+
 def main():
-    asyncio.run(indexer())    
+    asyncio.run(indexer())
 
 
 if __name__ == "__main__":
-    main()    
+    main()

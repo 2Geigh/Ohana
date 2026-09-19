@@ -6510,5 +6510,6 @@
 	{ "domain": "amazonaws.com" },
 	{ "domain": "garmin.com" },
 	{ "domain": "utoronto.ca" },
-	{ "domain": "whatsapp.com" }
+	{ "domain": "whatsapp.com" },
+	{ "domain": "googlesource.com" }
 ]
