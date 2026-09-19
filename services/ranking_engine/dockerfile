@@ -1,14 +1,17 @@
 FROM amazoncorretto:26-alpine AS build
-# OpenJDK distribution maintained by AWS
 
 WORKDIR /app
 
-COPY . .
+COPY src ./src
 
-RUN javac ./src/main.java
+RUN mkdir -p /out \
+    && find /app/src -type f -print \
+    && javac -d /out /app/src/ranking_engine/src/RankingEngine.java
 
-FROM build AS dist
+FROM amazoncorretto:26-alpine AS runtime
 
-COPY --from=build /app/src/RankingEngine.class /bin/RankingEngine.class
+WORKDIR /app
 
-CMD ["java", "/bin/RankingEngine.class"]
+COPY --from=build /out/ ./
+
+CMD ["java", "-cp", "/app", "ranking_engine.src.RankingEngine"]
