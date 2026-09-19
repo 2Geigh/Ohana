@@ -120,7 +120,7 @@ async def indexer() -> None:
                     WHERE id = $4;""",
                     embedding_literal,
                     CLEANED_TEXT,
-                    datetime.now(timezone.utc),
+                    datetime.now(),
                     pageId,
                 )
 
