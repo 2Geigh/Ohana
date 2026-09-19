@@ -1,3 +1,5 @@
+from datetime import timezone
+from datetime import datetime
 import asyncio
 import asyncpg
 import logging
@@ -39,7 +41,11 @@ async def indexer() -> None:
 
         while True:
             values: list = await conn.fetch(
-                "SELECT * FROM indexer_queue ORDER BY id ASC LIMIT 1;"
+                """SELECT *
+                FROM indexer_queue
+                ORDER BY id
+                ASC
+                LIMIT 1;"""
             )
 
             if len(values) < 1:
@@ -66,16 +72,14 @@ async def indexer() -> None:
             html = next(result.values())
 
             soup = BeautifulSoup(html, "lxml")
-
-            PRETTY_HTML = soup.prettify()
+            soup.prettify()
             text = soup.get_text()
             trimmed_text = text.strip()  # Removes leading and trailing whitespace
             CLEANED_TEXT = " ".join(
-                trimmed_text.split()
-            )  # Removes excessive in-text whitespace
+                trimmed_text.split()  # Removes excessive in-text whitespace
+            )
 
-            # print(CLEANED_TEXT)
-            # Get keywords from CLEANED_TEXT
+            # TODO: Get keywords from CLEANED_TEXT
 
             logger.info(
                 "Encoding page %s: %d characters",
@@ -109,9 +113,14 @@ async def indexer() -> None:
             async with conn.transaction():
                 await conn.execute(
                     """UPDATE pages
-                    SET embedding = $1 
-                    WHERE id = $2;""",
+                    SET
+                        embedding = $1,
+                        page_text = $2,
+                        date_last_indexed = $3
+                    WHERE id = $4;""",
                     embedding_literal,
+                    CLEANED_TEXT,
+                    datetime.now(timezone.utc),
                     pageId,
                 )
 
@@ -129,7 +138,7 @@ async def indexer() -> None:
                     siteId,
                 )
 
-                # Append webpage id to arrays in each keyword's key-value db entry
+                # TODO: Append webpage id to arrays in each keyword's key-value db entry
 
     except Exception as error:
         print(f"Error: {error}")

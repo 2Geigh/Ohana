@@ -241,12 +241,6 @@ func crawl(wg *sync.WaitGroup) {
 			continue
 		}
 
-		page.Text, err = parsePageBody(doc)
-		if err != nil {
-			log.Printf("[%s] parse body content failed: %v", currentUrl, err)
-			continue
-		}
-
 		// We do this instantiation step using `make`
 		// So that if len(page.Outneighbours) == 0,
 		// Postgres will read it as an empty array
@@ -376,84 +370,6 @@ func findHyperlinks(root_node *html.Node, root_url models.Url) []models.Url {
 	}
 
 	return hyperlinks
-}
-
-func parsePageBody(root_node *html.Node) (string, error) {
-	var (
-		body_node *html.Node
-
-		sb  strings.Builder
-		err error
-	)
-
-	// Find <body> node
-	for node := range root_node.Descendants() {
-		if node.DataAtom != atom.Body {
-			continue
-		}
-
-		body_node = node
-		break
-	}
-
-	if body_node == nil {
-		return sb.String(), fmt.Errorf("no <body> node found")
-	}
-
-	for node := range body_node.Descendants() {
-		var (
-			isBodyText = node.DataAtom != atom.Script &&
-				node.DataAtom != atom.Style &&
-
-				node.DataAtom != atom.Math &&
-				node.DataAtom != atom.Embed &&
-				node.DataAtom != atom.Iframe &&
-				node.DataAtom != atom.Object &&
-				node.DataAtom != atom.Picture &&
-				node.DataAtom != atom.Source &&
-
-				node.DataAtom != atom.Area &&
-				node.DataAtom != atom.Audio &&
-				node.DataAtom != atom.B &&
-				node.DataAtom != atom.Canvas &&
-				node.DataAtom != atom.Command &&
-				node.DataAtom != atom.I &&
-				node.DataAtom != atom.Img &&
-				node.DataAtom != atom.Map &&
-				node.DataAtom != atom.Svg &&
-				node.DataAtom != atom.Track &&
-				node.DataAtom != atom.Video &&
-
-				node.Type != html.CommentNode
-		)
-
-		if !isBodyText {
-			continue
-		}
-
-		if node.FirstChild == nil {
-			continue
-		}
-
-		if node.FirstChild.Type != html.TextNode {
-			continue
-		}
-
-		// fmt.Println()
-		// fmt.Println("               DATA", strings.TrimSpace(node.Data))
-		// fmt.Println("           DATAATOM", node.DataAtom)
-		// fmt.Println("           DATATYPE", node.Type)
-		// fmt.Println("    FIRSTCHILD_DATA", strings.TrimSpace(node.FirstChild.Data))
-		// fmt.Println("FIRSTCHILD_DATAATOM", node.FirstChild.DataAtom)
-		// fmt.Println("FIRSTCHILD_DATATYPE", node.FirstChild.Type)
-
-		_, err = sb.WriteString(fmt.Sprintf("%s ", strings.TrimSpace(node.FirstChild.Data)))
-		if err != nil {
-			err = fmt.Errorf("write to string builder failed: %w", err)
-		}
-	}
-
-	return strings.TrimSpace(sb.String()), err
 }
 
 func parsePageDescription(root_node *html.Node) string {

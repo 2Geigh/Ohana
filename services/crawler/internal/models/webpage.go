@@ -117,7 +117,7 @@ func (page *Webpage) Save(db *sql.DB) error {
 				title,
 				description,
 				link,
-				body_text,
+				page_text,
 				response_body,
 				date_discovered,
 				date_last_crawled,
