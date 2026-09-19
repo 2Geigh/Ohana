@@ -70,6 +70,9 @@ var (
 		models.Url("https://baccyflap.com/rsp/").TrimTrailingSlash(),
 		models.Url("https://www.oocities.org/").TrimTrailingSlash(),
 		models.Url("https://allchans.org/").TrimTrailingSlash(),
+		models.Url("https://xiixiixii.xyz/ring").TrimTrailingSlash(),
+		models.Url("https://猫.移动/webring/").TrimTrailingSlash(),
+		models.Url("https://dynamicland.org/").TrimTrailingSlash(),
 	}
 )
 

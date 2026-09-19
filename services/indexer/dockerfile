@@ -1,11 +1,11 @@
-FROM python:3-slim
+# Build stage
+FROM python:3.13-slim-trixie AS builder
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
 ENV UV_PROJECT_ENVIRONMENT=/app/.venv \
-    PATH="/app/.venv/bin:$PATH" \
     UV_NO_DEV=1 \
     UV_COMPILE_BYTECODE=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -13,12 +13,28 @@ ENV UV_PROJECT_ENVIRONMENT=/app/.venv \
 
 COPY pyproject.toml uv.lock ./
 
-RUN uv sync --locked --no-install-project \
-    && uv cache clean
+RUN uv sync --locked --no-install-project --no-dev
 
 COPY . .
 
-RUN uv sync --locked \
-    && uv cache clean
+RUN uv sync --locked --no-dev --no-editable \
+    && uv cache clean \
+    && rm -rf /root/.cache \
+    && find /app/.venv -type d -name '__pycache__' -prune -exec rm -rf {} + \
+    && find /app/.venv -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+
+
+# Runtime stage
+FROM python:3.13-slim-trixie AS runtime
+
+WORKDIR /app
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/src /app/src
+COPY --from=builder /app/pyproject.toml /app/pyproject.toml
 
 CMD ["indexer"]

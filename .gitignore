@@ -5,6 +5,7 @@
 /services/indexer/bin
 /services/indexer/pyvenv.cfg
 /services/indexer/.venv
+/services/indexer/.ruff_cache
 /services/client/public/assets/styles/*.css
 /services/client/public/assets/styles/*.css.map
 /services/client/vendor
