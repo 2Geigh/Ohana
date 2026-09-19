@@ -10,7 +10,7 @@ COPY src ./
 
 RUN cargo build --release
 
-FROM build AS final
+FROM alpine:3 AS final
 
 COPY --from=build /app/target/release/query_engine /bin/query_engine
 
