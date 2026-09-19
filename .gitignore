@@ -4,6 +4,7 @@
 /services/indexer/__pycache__
 /services/indexer/bin
 /services/indexer/pyvenv.cfg
+/services/indexer/.venv
 /services/client/public/assets/styles/*.css
 /services/client/public/assets/styles/*.css.map
 /services/client/vendor
