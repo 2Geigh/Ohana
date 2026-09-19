@@ -6494,5 +6494,17 @@
 	{ "domain": "google.co.zm" },
 	{ "domain": "google.co.zw" },
 	{ "domain": "google.cat" },
-	{ "domain": "redd.it" }
+	{ "domain": "redd.it" },
+	{ "domain": "newyorker.com" },
+	{ "domain": "redd.it" },
+	{ "domain": "vanityfair.com" },
+	{ "domain": "theatlantic.com" },
+	{ "domain": "nyc.gov" },
+	{ "domain": "motherjones.com" },
+	{ "domain": "vox.com" },
+	{ "domain": "go.com" },
+	{ "domain": "theverge.com" },
+	{ "domain": "nebula.tv" },
+	{ "domain": "techcrunch.com" },
+	{ "domain": "torontolife.com" }
 ]
