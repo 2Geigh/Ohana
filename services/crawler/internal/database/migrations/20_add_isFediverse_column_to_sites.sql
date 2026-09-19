@@ -1,0 +1,3 @@
+-- +goose Up
+ALTER TABLE sites
+ADD COLUMN is_fediverse BOOLEAN NOT NULL DEFAULT FALSE;

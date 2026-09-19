@@ -1,4 +1,4 @@
-FROM postgres:18.4-alpine
+FROM postgres:18-alpine
 
 ARG PGVECTOR_VERSION=0.8.6
 

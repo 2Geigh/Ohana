@@ -6506,5 +6506,9 @@
 	{ "domain": "theverge.com" },
 	{ "domain": "nebula.tv" },
 	{ "domain": "techcrunch.com" },
-	{ "domain": "torontolife.com" }
+	{ "domain": "torontolife.com" },
+	{ "domain": "amazonaws.com" },
+	{ "domain": "garmin.com" },
+	{ "domain": "utoronto.ca" },
+	{ "domain": "whatsapp.com" }
 ]

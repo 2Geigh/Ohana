@@ -69,6 +69,7 @@ var (
 		models.Url("https://baccyflap.com/noai/").TrimTrailingSlash(),
 		models.Url("https://baccyflap.com/rsp/").TrimTrailingSlash(),
 		models.Url("https://www.oocities.org/").TrimTrailingSlash(),
+		models.Url("https://allchans.org/").TrimTrailingSlash(),
 	}
 )
 
