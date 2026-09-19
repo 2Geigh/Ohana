@@ -1,6 +1,4 @@
-FROM postgres:18.4-alpine
-
-RUN apk add postgresql-pgvector
+FROM pgvector/pgvector:pg18-trixie
 
 EXPOSE 5432
 
