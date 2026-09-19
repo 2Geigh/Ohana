@@ -1,17 +1,29 @@
 FROM amazoncorretto:26-alpine AS build
 
+RUN apk add --no-cache binutils
+
 WORKDIR /app
 
 COPY src ./src
 
 RUN mkdir -p /out \
-    && find /app/src -type f -print \
     && javac -d /out /app/src/ranking_engine/src/RankingEngine.java
 
-FROM amazoncorretto:26-alpine AS runtime
+RUN jlink \
+    --add-modules java.base \
+    --strip-debug \
+    --no-man-pages \
+    --no-header-files \
+    --compress=zip-6 \
+    --output /jre
+
+FROM alpine:3.22 AS runtime
+
+RUN apk add --no-cache libstdc++
 
 WORKDIR /app
 
-COPY --from=build /out/ ./
+COPY --from=build /jre /opt/java
+COPY --from=build /out /app
 
-CMD ["java", "-cp", "/app", "ranking_engine.src.RankingEngine"]
+CMD ["/opt/java/bin/java", "-cp", "/app", "ranking_engine.src.RankingEngine"]
