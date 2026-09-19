@@ -24,6 +24,7 @@ type (
 		Outneighbours     []Url     `json:"outneighbours"`
 		Date_discovered   time.Time `json:"date_discovered"`
 		Date_last_crawled time.Time `json:"date_last_crawled"`
+		IsFediverseNode   bool      `json:"is_site_fediverse"`
 	}
 )
 
@@ -81,9 +82,10 @@ func (page *Webpage) Save(db *sql.DB) error {
 				fqdn,
 				full_domain,
 				date_discovered,
-				date_last_crawled
+				date_last_crawled,
+				is_fediverse
 			)
-			VALUES ($1, $2, $3, $4)
+			VALUES ($1, $2, $3, $4, $5)
 			RETURNING id;`,
 		)
 		if err != nil {
@@ -95,6 +97,7 @@ func (page *Webpage) Save(db *sql.DB) error {
 			page.FullDomain,
 			time.Now(),
 			time.Now(),
+			page.IsFediverseNode,
 		).Scan(&siteId)
 		if err != nil {
 			return fmt.Errorf("execute INSERT site stmt failed: %w", err)
@@ -102,9 +105,11 @@ func (page *Webpage) Save(db *sql.DB) error {
 	} else {
 		_, err = tx.Exec(
 			`UPDATE sites
-			SET date_last_crawled = $1
-			WHERE id = $2;`,
-			time.Now(), siteId)
+			SET
+				date_last_crawled = $1,
+				is_fediverse = $2
+			WHERE id = $3;`,
+			time.Now(), page.IsFediverseNode, siteId)
 		if err != nil {
 			return fmt.Errorf("update site date_last_crawled failed: %w", err)
 		}
@@ -148,8 +153,8 @@ func (page *Webpage) Save(db *sql.DB) error {
 			`UPDATE pages
 			SET 
 				date_last_crawled = $1,
-				outlinks = $2
-			WHERE id = $3;`,
+				outlinks = $2,
+			WHERE id = $4;`,
 			time.Now(), pq.Array(page.Outneighbours), pageId)
 		if err != nil {
 			return fmt.Errorf("update page date_last_crawled failed: %w", err)

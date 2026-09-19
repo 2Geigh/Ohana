@@ -271,6 +271,11 @@ func crawl(wg *sync.WaitGroup) {
 		page.Description = parsePageDescription(doc)
 		checkpoint = "set page.Description"
 
+		page.IsFediverseNode, err = isPageOnFediverse(page)
+		if err != nil {
+			log.Printf("[%s] determine fediverse participation status failed: %v", currentUrl, err)
+		}
+
 		err = page.Save(database.DB)
 		if err != nil {
 			log.Printf("[%s] save to database failed: %v", currentUrl, err)
@@ -370,6 +375,13 @@ func findHyperlinks(root_node *html.Node, root_url models.Url) []models.Url {
 	}
 
 	return hyperlinks
+}
+
+func isPageOnFediverse(p models.Webpage) (bool, error) {
+	// TODO: IMPLEMENT THIS FUNCTION USING DATA FROM:
+	// https://nodes.fediverse.party/
+
+	return false, nil
 }
 
 func parsePageDescription(root_node *html.Node) string {
