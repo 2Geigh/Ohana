@@ -233,6 +233,8 @@ func crawl(wg *sync.WaitGroup) {
 			continue
 		}
 
+		// TODO: Skip XML pages
+
 		doc, err := html.Parse(
 			strings.NewReader(string(body.asBytes)),
 		)
