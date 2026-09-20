@@ -91,7 +91,7 @@ async def indexer() -> None:
 
             # Determine page language
             try:
-                page_language = Detector(CLEANED_TEXT, quiet=True).language
+                page_language = Detector(CLEANED_TEXT).language
             except UnknownLanguage:
                 page_language = None
             print(page_language)
@@ -125,7 +125,7 @@ async def indexer() -> None:
 
 
             model_name = SPACY_MODEL_NAMES["Multilingual"]
-            if page_language.name in SPACY_MODEL_NAMES:
+            if page_language != None and page_language.name in SPACY_MODEL_NAMES:
                 model_name = SPACY_MODEL_NAMES[page_language.name]
             print("MODEL NAME", model_name)
 
@@ -191,6 +191,11 @@ async def indexer() -> None:
                 "[" + ",".join(str(float(value)) for value in embedding_values) + "]"
             )
 
+            page_language_code = "un"
+            if page_language != None:
+                page_language_code = page_language.code[0:2]
+
+
             async with conn.transaction():
                 await conn.execute(
                     """UPDATE pages
@@ -203,7 +208,7 @@ async def indexer() -> None:
                     embedding_literal,
                     CLEANED_TEXT,
                     datetime.now(),
-                    page_language.code[0:2],
+                    page_language_code,
                     pageId,
                 )
 
