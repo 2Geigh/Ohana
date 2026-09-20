@@ -174,10 +174,21 @@ async def indexer() -> None:
                     keywords.append(token.text)
 
             # Extract noun chunks (phrases like "data science")
-            noun_chunks = [chunk.text for chunk in doc.noun_chunks]
+            try:
+                noun_chunks = [chunk.text for chunk in doc.noun_chunks]
+            except Exception as exc:
+                logger.info(f"parse noun chunks failed: {exc}")
+                noun_chunks: list[str] = []
+            
+            KEY_TERMS = keywords + noun_chunks
+            KEY_TERMS_FREQUENCY: dict[str, int] = {}
+            for term in KEY_TERMS:
+                if term.lower() not in KEY_TERMS_FREQUENCY:
+                    KEY_TERMS_FREQUENCY[term.lower()] = 1
+                else:
+                    KEY_TERMS_FREQUENCY[term.lower()] += 1
+            print(KEY_TERMS_FREQUENCY)
 
-            print("Important Nouns:", set(keywords))
-            print("Noun Chunks:", noun_chunks)
 
             #########################################
             ########## VECTORIZE PAGE TEXT ##########
@@ -217,6 +228,25 @@ async def indexer() -> None:
                 page_language_code = page_language.code[0:2]
 
             async with conn.transaction():
+                for key_term in KEY_TERMS_FREQUENCY:
+                    await conn.execute(
+                        """DELETE 
+                        FROM keywords
+                        WHERE keyword = $1 AND page_id = $2;""",
+                        key_term, pageId)
+
+                    await conn.execute(
+                        """INSERT INTO keywords (
+                            keyword,
+                            page_id,
+                            word_occurences
+                        )
+                        VALUES ($1, $2, $3);""",
+                        key_term,
+                        pageId,
+                        KEY_TERMS_FREQUENCY[key_term]
+                    )   
+
                 await conn.execute(
                     """UPDATE pages
                     SET
@@ -245,8 +275,6 @@ async def indexer() -> None:
                     pageId,
                     siteId,
                 )
-
-                # TODO: Append webpage id to arrays in each keyword's key-value db entry
 
     except Exception as error:
         print(f"Error: {error}")

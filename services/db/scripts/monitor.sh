@@ -1,6 +1,6 @@
 #!/bin/sh
 
-exec watch -n 0.25 '
+exec watch -n 0.75 '
 psql -d ohana -c "
 SELECT count(*) AS sites_count FROM sites;
 SELECT count(*) AS pages_count FROM pages;
