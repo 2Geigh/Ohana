@@ -22,7 +22,7 @@ const (
 	CRAWLER_POLITENESS_INTERVAL time.Duration = 12 * time.Second
 	CRAWLER_OLDNESS_THRESHOLD   time.Duration = 86400 * time.Second // 7 days
 
-	NUMBER_OF_CRAWLERS = 25
+	NUMBER_OF_CRAWLERS = 10
 )
 
 var (

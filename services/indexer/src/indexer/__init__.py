@@ -164,22 +164,20 @@ async def indexer() -> None:
                     ]
                 )
 
-            # nlp = spacy.load(model_name)
+            nlp = spacy.load(model_name)
+            doc = nlp(CLEANED_TEXT) # process the text
 
-            # # Process the text
-            # doc = nlp(text)
+            # Extract nouns and proper nouns as potential keywords
+            keywords: list[str] = []
+            for token in doc:
+                if token.pos_ in ["NOUN", "PROPN"] and not token.is_stop:
+                    keywords.append(token.text)
 
-            # # Extract nouns and proper nouns as potential keywords
-            # keywords = []
-            # for token in doc:
-            #     if token.pos_ in ["NOUN", "PROPN"] and not token.is_stop:
-            #         keywords.append(token.text)
+            # Extract noun chunks (phrases like "data science")
+            noun_chunks = [chunk.text for chunk in doc.noun_chunks]
 
-            # # Extract noun chunks (phrases like "data science")
-            # noun_chunks = [chunk.text for chunk in doc.noun_chunks]
-
-            # print("Important Nouns:", set(keywords))
-            # print("Noun Chunks:", noun_chunks[:5])  # Show first 5
+            print("Important Nouns:", set(keywords))
+            print("Noun Chunks:", noun_chunks)
 
             #########################################
             ########## VECTORIZE PAGE TEXT ##########
