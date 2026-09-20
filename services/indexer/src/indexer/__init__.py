@@ -24,6 +24,21 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+def encodeUtf8(text: str) -> str:
+    if not isinstance(text, str):
+        text = str(text)
+
+    # Replace characters that cannot be encoded as valid UTF-8.
+    text = text.encode("utf-8", errors="replace").decode("utf-8")
+
+    # Remove NUL bytes and Unicode surrogate characters.
+    text = text.replace("\x00", "")
+    text = "".join(
+        character for character in text if not 0xD800 <= ord(character) <= 0xDFFF
+    )
+
+    return text
+
 
 async def indexer() -> None:
     try:
@@ -47,7 +62,9 @@ async def indexer() -> None:
             values: list = await conn.fetch(
                 """SELECT *
                 FROM indexer_queue
-                ORDER BY id
+                LEFT JOIN pages
+                ON pages.id = indexer_queue.page_id
+                ORDER BY pages.id
                 ASC
                 LIMIT 1;"""
             )
@@ -58,6 +75,10 @@ async def indexer() -> None:
 
             pageId = values[0]["page_id"]
             siteId = values[0]["site_id"]
+
+            
+            url = values[0]["link"]
+            print(url)
 
             values: list = await conn.fetch(
                 """SELECT (
@@ -78,12 +99,12 @@ async def indexer() -> None:
             soup = BeautifulSoup(html, "lxml")
             soup.prettify()
             text = soup.get_text()
-            trimmed_text = text.strip()  # Removes leading and trailing whitespace
-            CLEANED_TEXT = " ".join(
-                trimmed_text.split()  # Removes excessive in-text whitespace
+            stripped_text = text.strip()  # Removes leading and trailing whitespace
+            trimmed_text = " ".join(
+                stripped_text.split()  # Removes excessive in-text whitespace
             )
-            # print("CLEANED_TEXT")
-            # print(CLEANED_TEXT)
+            CLEANED_TEXT = encodeUtf8(trimmed_text)
+            print(CLEANED_TEXT)
 
             #########################################
             ########## KEYWORD EXTRACTION ###########
@@ -92,7 +113,10 @@ async def indexer() -> None:
             # Determine page language
             try:
                 page_language = Detector(CLEANED_TEXT).language
-            except UnknownLanguage:
+            except Exception as exc:
+                logger.error(
+                    f"detect page {pageId} language failed: {exc}",
+                )
                 page_language = None
             print(page_language)
 
@@ -123,13 +147,13 @@ async def indexer() -> None:
                 "Ukrainian": "uk_core_news_trf",
             }  # based on https://spacy.io/usage#quickstart
 
-
             model_name = SPACY_MODEL_NAMES["Multilingual"]
             if page_language != None and page_language.name in SPACY_MODEL_NAMES:
                 model_name = SPACY_MODEL_NAMES[page_language.name]
             print("MODEL NAME", model_name)
 
             if importlib.util.find_spec(model_name) is None:
+                
                 subprocess.check_call(
                     [
                         sys.executable,
@@ -140,7 +164,6 @@ async def indexer() -> None:
                     ]
                 )
 
-            # Load the small English model
             # nlp = spacy.load(model_name)
 
             # # Process the text
@@ -194,7 +217,6 @@ async def indexer() -> None:
             page_language_code = "un"
             if page_language != None:
                 page_language_code = page_language.code[0:2]
-
 
             async with conn.transaction():
                 await conn.execute(

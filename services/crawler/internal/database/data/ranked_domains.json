@@ -6511,5 +6511,6 @@
 	{ "domain": "garmin.com" },
 	{ "domain": "utoronto.ca" },
 	{ "domain": "whatsapp.com" },
-	{ "domain": "googlesource.com" }
+	{ "domain": "googlesource.com" },
+	{ "domain": "opensource.google" }
 ]
