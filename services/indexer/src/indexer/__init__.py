@@ -203,7 +203,7 @@ async def indexer() -> None:
                     embedding_literal,
                     CLEANED_TEXT,
                     datetime.now(),
-                    page_language.code,
+                    page_language.code[0:2],
                     pageId,
                 )
 
