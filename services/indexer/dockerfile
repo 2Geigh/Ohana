@@ -1,5 +1,11 @@
-# Build stage
 FROM python:3.13-slim-trixie AS builder
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        pkg-config \
+        libicu-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
@@ -23,9 +29,12 @@ RUN uv sync --locked --no-dev --no-editable \
     && find /app/.venv -type d -name '__pycache__' -prune -exec rm -rf {} + \
     && find /app/.venv -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
 
-
-# Runtime stage
 FROM python:3.13-slim-trixie AS runtime
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libicu76 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

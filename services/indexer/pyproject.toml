@@ -11,8 +11,16 @@ dependencies = [
     "asyncpg>=0.31.0",
     "bs4>=0.0.2",
     "lxml>=6.1.3",
+    "pip>=26.2.1",
+    "polyglot>=16.7.4",
+    "pycld2>=0.42",
+    "pyicu>=2.16.2",
     "sentence-transformers>=6.1.0",
-    "torch"
+    "setuptools>=84.0.0",
+    "six>=1.17.0",
+    "spacy>=3.8.16",
+    "torch",
+    "wheel>=0.48.0",
 ]
 
 [project.scripts]
@@ -26,6 +34,7 @@ build-backend = "uv_build"
 torch = [
     { index = "pytorch-cpu" }
 ]
+
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

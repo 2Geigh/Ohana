@@ -1,14 +1,18 @@
-from datetime import timezone
-from datetime import datetime
 import asyncio
 import asyncpg
+from bs4 import BeautifulSoup
+from datetime import datetime
+import importlib.util
 import logging
 import os
+from polyglot.detect import Detector
+from polyglot.detect.base import UnknownLanguage, Language
+from sentence_transformers import SentenceTransformer
+import spacy
+import subprocess
 import sys
 import time
 import traceback
-from bs4 import BeautifulSoup
-from sentence_transformers import SentenceTransformer
 
 
 logging.basicConfig(
@@ -78,8 +82,85 @@ async def indexer() -> None:
             CLEANED_TEXT = " ".join(
                 trimmed_text.split()  # Removes excessive in-text whitespace
             )
+            # print("CLEANED_TEXT")
+            # print(CLEANED_TEXT)
 
-            # TODO: Get keywords from CLEANED_TEXT
+            #########################################
+            ########## KEYWORD EXTRACTION ###########
+            #########################################
+
+            # Determine page language
+            try:
+                page_language = Detector(CLEANED_TEXT, quiet=True).language
+            except UnknownLanguage:
+                page_language = None
+            print(page_language)
+
+            SPACY_MODEL_NAMES = {
+                "Multilingual": "xx_sent_ud_sm",
+                "Catalan": "ca_core_news_trf",
+                "Chinese": "zh_core_web_trf",
+                "Croatian": "hr_core_news_lg",
+                "Danish": "da_core_news_trf",
+                "Dutch": "nl_core_news_lg",
+                "English": "en_core_web_trf",
+                "Finnish": "fi_core_news_lg",
+                "French": "fr_dep_news_trf",
+                "German": "de_dep_news_trf",
+                "Greek": "el_core_news_lg",
+                "Italian": "it_core_news_lg",
+                "Japanese": "ja_core_news_trf",
+                "Korean": "ko_core_news_lg",
+                "Lithuanian": "lt_core_news_lg",
+                "Macedonian": "mk_core_news_lg",
+                "Polish": "pl_core_news_lg",
+                "Portuguese": "pt_core_news_lg",
+                "Romanian": "ro_core_news_lg",
+                "Russian": "ru_core_news_lg",
+                "Slovenian": "sl_core_news_trf",
+                "Spanish": "es_dep_news_trf",
+                "Swedish": "sv_core_news_lg",
+                "Ukrainian": "uk_core_news_trf",
+            }  # based on https://spacy.io/usage#quickstart
+
+
+            model_name = SPACY_MODEL_NAMES["Multilingual"]
+            if page_language.name in SPACY_MODEL_NAMES:
+                model_name = SPACY_MODEL_NAMES[page_language.name]
+            print("MODEL NAME", model_name)
+
+            if importlib.util.find_spec(model_name) is None:
+                subprocess.check_call(
+                    [
+                        sys.executable,
+                        "-m",
+                        "spacy",
+                        "download",
+                        model_name,
+                    ]
+                )
+
+            # Load the small English model
+            # nlp = spacy.load(model_name)
+
+            # # Process the text
+            # doc = nlp(text)
+
+            # # Extract nouns and proper nouns as potential keywords
+            # keywords = []
+            # for token in doc:
+            #     if token.pos_ in ["NOUN", "PROPN"] and not token.is_stop:
+            #         keywords.append(token.text)
+
+            # # Extract noun chunks (phrases like "data science")
+            # noun_chunks = [chunk.text for chunk in doc.noun_chunks]
+
+            # print("Important Nouns:", set(keywords))
+            # print("Noun Chunks:", noun_chunks[:5])  # Show first 5
+
+            #########################################
+            ########## VECTORIZE PAGE TEXT ##########
+            #########################################
 
             logger.info(
                 "Encoding page %s: %d characters",
@@ -116,11 +197,13 @@ async def indexer() -> None:
                     SET
                         embedding = $1,
                         page_text = $2,
-                        date_last_indexed = $3
-                    WHERE id = $4;""",
+                        date_last_indexed = $3,
+                        text_language = $4
+                    WHERE id = $5;""",
                     embedding_literal,
                     CLEANED_TEXT,
                     datetime.now(),
+                    page_language.code,
                     pageId,
                 )
 
