@@ -1,19 +1,22 @@
 import asyncio
 import asyncpg
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from datetime import datetime
+import gc
 import importlib.util
 import logging
 import os
 from polyglot.detect import Detector
-from polyglot.detect.base import UnknownLanguage, Language
 from sentence_transformers import SentenceTransformer
 import spacy
 import subprocess
 import sys
 import time
 import traceback
+import torch
 
+# Constrain PyTorch thread utilization to prevent memory ballooning in CPU mode.
+torch.set_num_threads(1)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,33 +27,111 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+BLOCK_TAGS = {
+    "html",
+    "body",
+    "main",
+    "article",
+    "section",
+    "div",
+    "header",
+    "footer",
+    "aside",
+    "nav",
+    "p",
+    "li",
+    "blockquote",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "pre",
+    "td",
+    "th",
+    "dt",
+    "dd",
+}
+SKIP_TAGS = {"script", "style", "noscript", "template", "meta", "link"}
+SPACY_MODEL_NAMES = {
+    "Multilingual": "xx_sent_ud_sm",
+    "Catalan": "ca_core_news_trf",
+    "Chinese": "zh_core_web_trf",
+    "Croatian": "hr_core_news_lg",
+    "Danish": "da_core_news_trf",
+    "Dutch": "nl_core_news_lg",
+    "English": "en_core_web_trf",
+    "Finnish": "fi_core_news_lg",
+    "French": "fr_dep_news_trf",
+    "German": "de_dep_news_trf",
+    "Greek": "el_core_news_lg",
+    "Italian": "it_core_news_lg",
+    "Japanese": "ja_core_news_trf",
+    "Korean": "ko_core_news_lg",
+    "Lithuanian": "lt_core_news_lg",
+    "Macedonian": "mk_core_news_lg",
+    "Polish": "pl_core_news_lg",
+    "Portuguese": "pt_core_news_lg",
+    "Romanian": "ro_core_news_lg",
+    "Russian": "ru_core_news_lg",
+    "Slovenian": "sl_core_news_trf",
+    "Spanish": "es_dep_news_trf",
+    "Swedish": "sv_core_news_lg",
+    "Ukrainian": "uk_core_news_trf",
+}
+
+
 def encodeUtf8(text: str) -> str:
     if not isinstance(text, str):
         text = str(text)
-
-    # Replace characters that cannot be encoded as valid UTF-8.
     text = text.encode("utf-8", errors="replace").decode("utf-8")
-
-    # Remove NUL bytes and Unicode surrogate characters.
     text = text.replace("\x00", "")
-    text = "".join(
+    return "".join(
         character for character in text if not 0xD800 <= ord(character) <= 0xDFFF
     )
 
-    return text
+
+def extract_chunks(tag, max_chars=1000):
+    if not isinstance(tag, Tag) or tag.name in SKIP_TAGS:
+        return []
+
+    direct_text = " ".join(
+        str(node).strip()
+        for node in tag.children
+        if not isinstance(node, Tag) and str(node).strip()
+    )
+
+    child_blocks = [child for child in tag.find_all(BLOCK_TAGS, recursive=False)]
+
+    if tag.name in BLOCK_TAGS and not child_blocks:
+        text = " ".join(tag.get_text(" ", strip=True).split())
+        return [text] if text else []
+
+    chunks = []
+    for child in tag.children:
+        if not isinstance(child, Tag) or child.name in SKIP_TAGS:
+            continue
+        if child.name in BLOCK_TAGS:
+            chunks.extend(extract_chunks(child, max_chars))
+
+    if not chunks:
+        text = " ".join(tag.get_text(" ", strip=True).split())
+        return [text] if text else []
+
+    return chunks
 
 
 async def indexer() -> None:
+    logger.info("Loading embedding model...")
+    start = time.perf_counter()
+    model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device="cpu")
+    logger.info("Model loaded in %.1f seconds", time.perf_counter() - start)
+
+    loaded_nlp_models = {}
+    conn = None
+
     try:
-        logger.info("Loading embedding model...")
-
-        start = time.perf_counter()
-        model = SentenceTransformer(
-            "sentence-transformers/all-MiniLM-L6-v2", device="cpu"
-        )
-
-        logger.info("Model loaded in %.1f seconds", time.perf_counter() - start)
-
         conn = await asyncpg.connect(
             user=os.getenv("DB_USERNAME"),
             password=os.getenv("DB_PASSWORD"),
@@ -59,226 +140,159 @@ async def indexer() -> None:
         )
 
         while True:
-            values: list = await conn.fetch(
-                """SELECT *
-                FROM indexer_queue
-                LEFT JOIN pages
-                ON pages.id = indexer_queue.page_id
-                ORDER BY pages.id
-                ASC
-                LIMIT 1;"""
-            )
-
-            if len(values) < 1:
-                await asyncio.sleep(1)
-                continue
-
-            pageId = values[0]["page_id"]
-            siteId = values[0]["site_id"]
-
-            
-            url = values[0]["link"]
-            print(url)
-
-            values: list = await conn.fetch(
-                """SELECT (
-                    response_body
-                )
-                FROM pages
-                WHERE id = $1
-                LIMIT 1;""",
-                pageId,
-            )
-
-            if len(values) < 1:
-                continue
-
-            result: asyncpg.protocol.record.Record = values[0]
-            html = next(result.values())
-
-            soup = BeautifulSoup(html, "lxml")
-            soup.prettify()
-            text = soup.get_text()
-            stripped_text = text.strip()  # Removes leading and trailing whitespace
-            trimmed_text = " ".join(
-                stripped_text.split()  # Removes excessive in-text whitespace
-            )
-            CLEANED_TEXT = encodeUtf8(trimmed_text)
-            print(CLEANED_TEXT)
-
-            #########################################
-            ########## KEYWORD EXTRACTION ###########
-            #########################################
-
-            # Determine page language
             try:
-                page_language = Detector(CLEANED_TEXT).language
-            except Exception as exc:
-                logger.error(
-                    f"detect page {pageId} language failed: {exc}",
-                )
-                page_language = None
-            print(page_language)
+                print()
+                page_start_time = time.time()
 
-            SPACY_MODEL_NAMES = {
-                "Multilingual": "xx_sent_ud_sm",
-                "Catalan": "ca_core_news_trf",
-                "Chinese": "zh_core_web_trf",
-                "Croatian": "hr_core_news_lg",
-                "Danish": "da_core_news_trf",
-                "Dutch": "nl_core_news_lg",
-                "English": "en_core_web_trf",
-                "Finnish": "fi_core_news_lg",
-                "French": "fr_dep_news_trf",
-                "German": "de_dep_news_trf",
-                "Greek": "el_core_news_lg",
-                "Italian": "it_core_news_lg",
-                "Japanese": "ja_core_news_trf",
-                "Korean": "ko_core_news_lg",
-                "Lithuanian": "lt_core_news_lg",
-                "Macedonian": "mk_core_news_lg",
-                "Polish": "pl_core_news_lg",
-                "Portuguese": "pt_core_news_lg",
-                "Romanian": "ro_core_news_lg",
-                "Russian": "ru_core_news_lg",
-                "Slovenian": "sl_core_news_trf",
-                "Spanish": "es_dep_news_trf",
-                "Swedish": "sv_core_news_lg",
-                "Ukrainian": "uk_core_news_trf",
-            }  # based on https://spacy.io/usage#quickstart
-
-            model_name = SPACY_MODEL_NAMES["Multilingual"]
-            if page_language != None and page_language.name in SPACY_MODEL_NAMES:
-                model_name = SPACY_MODEL_NAMES[page_language.name]
-            print("MODEL NAME", model_name)
-
-            if importlib.util.find_spec(model_name) is None:
-                
-                subprocess.check_call(
-                    [
-                        sys.executable,
-                        "-m",
-                        "spacy",
-                        "download",
-                        model_name,
-                    ]
+                values: list = await conn.fetch(
+                    """SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link 
+                    FROM indexer_queue
+                    LEFT JOIN pages ON pages.id = indexer_queue.page_id
+                    ORDER BY pages.id ASC LIMIT 1;"""
                 )
 
-            nlp = spacy.load(model_name)
-            doc = nlp(CLEANED_TEXT) # process the text
+                if not values:
+                    await asyncio.sleep(1)
+                    continue
 
-            # Extract nouns and proper nouns as potential keywords
-            keywords: list[str] = []
-            for token in doc:
-                if token.pos_ in ["NOUN", "PROPN"] and not token.is_stop:
-                    keywords.append(token.text)
+                pageId = values[0]["page_id"]
+                siteId = values[0]["site_id"]
+                url = values[0]["link"]
+                print(url)
 
-            # Extract noun chunks (phrases like "data science")
-            try:
-                noun_chunks = [chunk.text for chunk in doc.noun_chunks]
-            except Exception as exc:
-                logger.info(f"parse noun chunks failed: {exc}")
-                noun_chunks: list[str] = []
-            
-            KEY_TERMS = keywords + noun_chunks
-            KEY_TERMS_FREQUENCY: dict[str, int] = {}
-            for term in KEY_TERMS:
-                if term.lower() not in KEY_TERMS_FREQUENCY:
-                    KEY_TERMS_FREQUENCY[term.lower()] = 1
-                else:
-                    KEY_TERMS_FREQUENCY[term.lower()] += 1
-            print(KEY_TERMS_FREQUENCY)
-
-
-            #########################################
-            ########## VECTORIZE PAGE TEXT ##########
-            #########################################
-
-            logger.info(
-                "Encoding page %s: %d characters",
-                pageId,
-                len(CLEANED_TEXT),
-            )
-
-            start = time.perf_counter()
-
-            embedding = model.encode(
-                [CLEANED_TEXT],
-                show_progress_bar=True,
-                convert_to_numpy=True,
-            )
-
-            logger.info(
-                "Embedding completed in %.1f seconds; shape=%s",
-                time.perf_counter() - start,
-                embedding.shape,
-            )
-
-            # Convert shape (1, N) to shape (N,)
-            # where N is the number of dimensions
-            embedding_values = embedding[0].tolist()
-
-            # Convert to pgvector text syntax
-            embedding_literal = (
-                "[" + ",".join(str(float(value)) for value in embedding_values) + "]"
-            )
-
-            page_language_code = "un"
-            if page_language != None:
-                page_language_code = page_language.code[0:2]
-
-            async with conn.transaction():
-                for key_term in KEY_TERMS_FREQUENCY:
+                page_data: list = await conn.fetch(
+                    "SELECT response_body FROM pages WHERE id = $1 LIMIT 1;", pageId
+                )
+                if not page_data:
                     await conn.execute(
-                        """DELETE 
-                        FROM keywords
-                        WHERE keyword = $1 AND page_id = $2;""",
-                        key_term, pageId)
+                        "DELETE FROM indexer_queue WHERE page_id = $1;", pageId
+                    )
+                    continue
 
+                html = page_data[0]["response_body"]
+
+                soup = BeautifulSoup(html, "lxml")
+                root = soup.body or soup
+                text_chunks = extract_chunks(root)
+                soup.decompose()
+
+                cleaned_texts = [
+                    encodeUtf8(chunk) for chunk in text_chunks if chunk.strip()
+                ]
+                full_cleaned_text = " ".join(cleaned_texts)
+                if not full_cleaned_text.strip():
                     await conn.execute(
-                        """INSERT INTO keywords (
-                            keyword,
-                            page_id,
-                            word_occurences
+                        "DELETE FROM indexer_queue WHERE page_id = $1;", pageId
+                    )
+                    continue
+
+                try:
+                    page_language = Detector(full_cleaned_text[:5000]).language
+                except Exception as exc:
+                    logger.error(f"detect page {pageId} language failed: {exc}")
+                    page_language = None
+
+                model_name = SPACY_MODEL_NAMES["Multilingual"]
+                if page_language and page_language.name in SPACY_MODEL_NAMES:
+                    model_name = SPACY_MODEL_NAMES[page_language.name]
+
+                if model_name not in loaded_nlp_models:
+                    if importlib.util.find_spec(model_name) is None:
+                        subprocess.check_call(
+                            [sys.executable, "-m", "spacy", "download", model_name]
                         )
-                        VALUES ($1, $2, $3);""",
-                        key_term,
+                    loaded_nlp_models[model_name] = spacy.load(model_name)
+                nlp = loaded_nlp_models[model_name]
+
+                KEY_TERMS_FREQUENCY: dict[str, int] = {}
+
+                for text_chunk in cleaned_texts:
+                    chunk_start_time = time.time()
+
+                    doc = nlp(text_chunk)
+                    keywords = [
+                        token.text
+                        for token in doc
+                        if token.pos_ in ["NOUN", "PROPN"] and not token.is_stop
+                    ]
+
+                    try:
+                        noun_chunks = [chunk.text for chunk in doc.noun_chunks]
+                    except Exception:
+                        noun_chunks = []
+
+                    for term in keywords + noun_chunks:
+                        term_lower = term.lower()
+                        if term_lower in KEY_TERMS_FREQUENCY:
+                            KEY_TERMS_FREQUENCY[term_lower] += 1 
+                        else:
+                            KEY_TERMS_FREQUENCY[term_lower] = 1 
+
+                    logger.info(f"Indexed in {round(time.time() - chunk_start_time, 2)}s: {keywords + noun_chunks}")
+
+                embed_start = time.time()
+                logger.info("Embedding page text...")
+                embedding = model.encode(
+                    [full_cleaned_text], show_progress_bar=False, convert_to_numpy=True
+                )
+                embedding_literal = (  # to match pgvector's vector syntax
+                    "[" + ",".join(str(float(v)) for v in embedding[0].tolist()) + "]"
+                )
+                logger.info(f"Embedding completed in {round(time.time() - embed_start, 2)}")
+
+                page_language_code: str = "un"
+                if page_language:
+                    page_language_code = page_language.code[0:2]
+
+                logger.info(f"Page processed in {round(time.time() - page_start_time, 2)}s")
+
+                async with conn.transaction():
+                    tx_start = time.time()
+                    print("Executing database transaction...")
+
+                    await conn.execute(
+                        "DELETE FROM keywords WHERE page_id = $1;", pageId
+                    )
+
+                    await conn.execute(
+                        """UPDATE pages
+                        SET embedding = $1, page_text = $2, date_last_indexed = $3, text_language = $4
+                        WHERE id = $5;""",
+                        embedding_literal,
+                        full_cleaned_text,
+                        datetime.now(),
+                        page_language_code,
                         pageId,
-                        KEY_TERMS_FREQUENCY[key_term]
-                    )   
+                    )
 
-                await conn.execute(
-                    """UPDATE pages
-                    SET
-                        embedding = $1,
-                        page_text = $2,
-                        date_last_indexed = $3,
-                        text_language = $4
-                    WHERE id = $5;""",
-                    embedding_literal,
-                    CLEANED_TEXT,
-                    datetime.now(),
-                    page_language_code,
-                    pageId,
-                )
+                    await conn.execute(
+                        "DELETE FROM indexer_queue WHERE page_id = $1;", pageId
+                    )
+                    
+                    await conn.execute(
+                        "INSERT INTO ranking_engine_queue (page_id, site_id) VALUES ($1, $2);",
+                        pageId,
+                        siteId,
+                    )
 
-                await conn.execute(
-                    """DELETE FROM indexer_queue
-                    WHERE page_id = $1;""",
-                    pageId,
-                )
+                    if KEY_TERMS_FREQUENCY:
+                        keyword_records = [
+                            (k, pageId, v) for k, v in KEY_TERMS_FREQUENCY.items()
+                        ]
+                        await conn.copy_records_to_table(
+                            "keywords",
+                            records=keyword_records,
+                            columns=["keyword", "page_id", "word_occurences"],
+                        )
+                    
+                    print(f"Transaction completed in {round(time.time() - tx_start, 2)}s")
 
-                await conn.execute(
-                    """INSERT INTO ranking_engine_queue
-                    (page_id, site_id)
-                    VALUES ($1, $2);""",
-                    pageId,
-                    siteId,
-                )
+            except Exception as exc:
+                logger.error(f"Error processing page {pageId}: {exc}")
+                traceback.print_exc()
 
-    except Exception as error:
-        print(f"Error: {error}")
-        traceback.print_exc()
+            finally:
+                gc.collect()
 
     finally:
         if conn is not None:
