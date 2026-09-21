@@ -13,6 +13,11 @@
     
     - Use the above model to vectorize the full page text and store the embedding in the pgvector `pages` column
 
-    - Extract keywords from each text chunk (or the whole page, depending on memory usage in testing) using [Apache Lucene]("https://lucene.apache.org/core/")
+    - For each text chunk (or the whole page, depending on memory usage in testing) using [Apache Lucene]("https://lucene.apache.org/core/"):
+        - Tokenize the page text.
+        - Lowercase terms.
+        - Remove punctuation and stop words.
+        - Apply stemming or lemmatization.
+        - Index the resulting terms with Lucene.
 
     - Save keyword-occurences-page_id triplets to database
