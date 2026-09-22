@@ -154,7 +154,7 @@ func (page *Webpage) Save(db *sql.DB) error {
 			SET 
 				date_last_crawled = $1,
 				outlinks = $2
-			WHERE id = $4;`,
+			WHERE id = $3;`,
 			time.Now(), pq.Array(page.Outneighbours), pageId)
 		if err != nil {
 			return fmt.Errorf("update page date_last_crawled failed: %w", err)
