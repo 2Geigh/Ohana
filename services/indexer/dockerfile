@@ -2,15 +2,15 @@ FROM maven:3.9-amazoncorretto-25-alpine AS build
 
 WORKDIR /app
 
-COPY pom.xml ./pom.xml 
+COPY pom.xml . 
 COPY src ./src
 
-RUN mvn package
+RUN mvn clean package
 
-FROM amazoncorretto:25-alpine
+FROM amazoncorretto:25-alpine AS dist
 
 WORKDIR /app
 
-COPY --from=build /app/target/*.jar ./app.jar
+COPY --from=build /app/target/indexer-1.0-SNAPSHOT.jar ./app.jar
 
-CMD ["java", "-jar", "./app.jar"]
+CMD ["java", "-jar", "/app/app.jar"]

@@ -6512,5 +6512,14 @@
 	{ "domain": "utoronto.ca" },
 	{ "domain": "whatsapp.com" },
 	{ "domain": "googlesource.com" },
-	{ "domain": "opensource.google" }
+	{ "domain": "opensource.google" },
+	{ "domain": "nyti.ms" },
+	{ "domain": "huffingtonpost.com" },
+	{ "domain": "kotaku.com" },
+	{ "domain": "shopify.com" },
+	{ "domain": "googleblog.com" },
+	{ "domain": "blog.google" },
+	{ "domain": "githubengineering.com" },
+	{ "domain": "starwars.com" },
+	{ "domain": "wealthsimple.com" }
 ]
