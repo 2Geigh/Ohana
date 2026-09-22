@@ -153,7 +153,7 @@ func (page *Webpage) Save(db *sql.DB) error {
 			`UPDATE pages
 			SET 
 				date_last_crawled = $1,
-				outlinks = $2,
+				outlinks = $2
 			WHERE id = $4;`,
 			time.Now(), pq.Array(page.Outneighbours), pageId)
 		if err != nil {
