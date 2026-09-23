@@ -63,16 +63,13 @@ public class App {
                 System.out.println();
                 System.out.println("[" + PAGE_URL + "]");
 
-                List<String> chunks = htmlChunkExtractor.extractTextChunks(RESPONSE_BODY);
-
-                System.out.println();
-                System.out.println("FINAL RESULTING CHUNKS VVVVVV");
+                List<String> chunks = htmlChunkExtractor.ExtractTextChunks(RESPONSE_BODY);
+                String text = htmlChunkExtractor.GetFullText(RESPONSE_BODY);
+                System.out.println(text);
                 for (String chunk : chunks) {
                     System.out.println(chunk);
                 }
 
-                // TODO: Extract text chunks from the page
-                // TODO: Compile the chunks into a single full text source too
                 // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
                 stmt.close();
                 result.close();
@@ -145,7 +142,18 @@ class htmlChunkExtractor {
             "link"
     ));
 
-    public static List<String> extractTextChunks(String html) {
+    public static String GetFullText(String html) {
+        Document document = Jsoup.parse(html);
+
+        Element root = document.body();
+        if (root == null) {
+            root = document;
+        }
+
+        return normalizeText(root.text());
+    }
+
+    public static List<String> ExtractTextChunks(String html) {
         if (html == null || html.isBlank()) {
             return List.of();
         }
@@ -190,9 +198,9 @@ class htmlChunkExtractor {
         }
 
         for (Element childBlock : childBlocks) {
-            System.out.println();
-            System.out.println("CHILD BELOW VVVVVV");
-            System.out.println(childBlock);
+            // System.out.println();
+            // System.out.println("CHILD BELOW VVVVVV");
+            // System.out.println(childBlock);
         }
         boolean isBlockElement = BLOCK_TAGS.contains(element.tagName());
         boolean isChildless = childBlocks.isEmpty();
@@ -211,23 +219,23 @@ class htmlChunkExtractor {
         for (Element child : element.children()) {
             boolean isSkipTag = SKIP_TAGS.contains(child.tagName());
             if (isSkipTag) {
-                System.out.println();
-                System.out.println("THIS IS A SKIP TAG");
-                System.out.println(child);
+                // System.out.println();
+                // System.out.println("THIS IS A SKIP TAG");
+                // System.out.println(child);
                 continue;
             }
 
             boolean isBlockTag = BLOCK_TAGS.contains(child.tagName());
             if (!isBlockTag) {
-                System.out.println();
-                System.out.println("THIS ISN'T A BLOCK TAG");
-                System.out.println(child);
+                // System.out.println();
+                // System.out.println("THIS ISN'T A BLOCK TAG");
+                // System.out.println(child);
                 continue;
             }
 
-            System.out.println();
-            System.out.println("THIS IS BEING SENT TO TEXT CHUNK EXTRACTION");
-            System.out.println(child);
+            // System.out.println();
+            // System.out.println("THIS IS BEING SENT TO TEXT CHUNK EXTRACTION");
+            // System.out.println(child);
             List<String> text_chunks_in_child = extractChunks(child, maxChars);
 
             chunks.addAll(text_chunks_in_child);
