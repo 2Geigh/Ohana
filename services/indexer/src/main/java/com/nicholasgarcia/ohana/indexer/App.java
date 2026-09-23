@@ -63,6 +63,14 @@ public class App {
                 System.out.println();
                 System.out.println("[" + PAGE_URL + "]");
 
+                List<String> chunks = htmlChunkExtractor.extractTextChunks(RESPONSE_BODY);
+
+                System.out.println();
+                System.out.println("FINAL RESULTING CHUNKS VVVVVV");
+                for (String chunk : chunks) {
+                    System.out.println(chunk);
+                }
+
                 // TODO: Extract text chunks from the page
                 // TODO: Compile the chunks into a single full text source too
                 // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
@@ -123,7 +131,9 @@ class htmlChunkExtractor {
             "td",
             "th",
             "dt",
-            "dd"
+            "dd",
+            "ul",
+            "a"
     ));
 
     private static final Set<String> SKIP_TAGS = new HashSet<>(Arrays.asList(
@@ -135,9 +145,6 @@ class htmlChunkExtractor {
             "link"
     ));
 
-    /**
-     * Parses HTML and extracts textual chunks.
-     */
     public static List<String> extractTextChunks(String html) {
         if (html == null || html.isBlank()) {
             return List.of();
@@ -165,11 +172,12 @@ class htmlChunkExtractor {
         return cleanedChunks;
     }
 
-    /**
-     * Equivalent to the Python extract_chunks function.
-     */
     private static List<String> extractChunks(Element element, int maxChars) {
-        if (element == null || SKIP_TAGS.contains(element.tagName())) {
+        if (element == null) {
+            return List.of();
+        }
+
+        if (SKIP_TAGS.contains(element.tagName())) {
             return List.of();
         }
 
@@ -181,45 +189,60 @@ class htmlChunkExtractor {
             }
         }
 
-        /*
-         * If this is a block element with no nested block elements,
-         * treat the entire element as one text chunk.
-         */
-        if (BLOCK_TAGS.contains(element.tagName()) && childBlocks.isEmpty()) {
+        for (Element childBlock : childBlocks) {
+            System.out.println();
+            System.out.println("CHILD BELOW VVVVVV");
+            System.out.println(childBlock);
+        }
+        boolean isBlockElement = BLOCK_TAGS.contains(element.tagName());
+        boolean isChildless = childBlocks.isEmpty();
+
+        if (isBlockElement && isChildless) {
+            // Treat the entire element as one text chunk
+            String text = normalizeText(element.text());
+            if (text.isEmpty()) {
+                return List.of();
+            }
+            return splitIntoChunks(text, maxChars);
+        }
+
+        List<String> chunks = new ArrayList<>();
+
+        for (Element child : element.children()) {
+            boolean isSkipTag = SKIP_TAGS.contains(child.tagName());
+            if (isSkipTag) {
+                System.out.println();
+                System.out.println("THIS IS A SKIP TAG");
+                System.out.println(child);
+                continue;
+            }
+
+            boolean isBlockTag = BLOCK_TAGS.contains(child.tagName());
+            if (!isBlockTag) {
+                System.out.println();
+                System.out.println("THIS ISN'T A BLOCK TAG");
+                System.out.println(child);
+                continue;
+            }
+
+            System.out.println();
+            System.out.println("THIS IS BEING SENT TO TEXT CHUNK EXTRACTION");
+            System.out.println(child);
+            List<String> text_chunks_in_child = extractChunks(child, maxChars);
+
+            chunks.addAll(text_chunks_in_child);
+        }
+
+        //  If no block children produced text,
+        //  element's innertext is the fallback
+        if (chunks.isEmpty()) {
             String text = normalizeText(element.text());
 
             if (text.isEmpty()) {
                 return List.of();
             }
 
-            return splitIntoChunks(text, maxChars);
-        }
-
-        List<String> chunks = new ArrayList<>();
-
-        /*
-         * Recurse only through direct child block elements.
-         */
-        for (Element child : element.children()) {
-            if (SKIP_TAGS.contains(child.tagName())) {
-                continue;
-            }
-
-            if (BLOCK_TAGS.contains(child.tagName())) {
-                chunks.addAll(extractChunks(child, maxChars));
-            }
-        }
-
-        /*
-         * If no block children produced text, use the element's
-         * complete textual content as a fallback.
-         */
-        if (chunks.isEmpty()) {
-            String text = normalizeText(element.text());
-
-            if (!text.isEmpty()) {
-                chunks.addAll(splitIntoChunks(text, maxChars));
-            }
+            chunks.addAll(splitIntoChunks(text, maxChars));
         }
 
         return chunks;

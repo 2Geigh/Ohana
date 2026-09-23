@@ -73,6 +73,14 @@ var (
 		models.Url("https://xiixiixii.xyz/ring").TrimTrailingSlash(),
 		models.Url("https://猫.移动/webring/").TrimTrailingSlash(),
 		models.Url("https://dynamicland.org/").TrimTrailingSlash(),
+		models.Url("https://webring.htmlhobbyist.com/").TrimTrailingSlash(),
+		models.Url("https://francophonering.neocities.org/").TrimTrailingSlash(),
+		models.Url("https://euroring.neocities.org/").TrimTrailingSlash(),
+		models.Url("https://evehibi.nekoweb.org/ringlink/info").TrimTrailingSlash(),
+		models.Url("https://wiby.me/").TrimTrailingSlash(),
+		models.Url("https://32bit.cafe/"),
+		models.Url("https://wiki.melonland.net/web_revival").TrimTrailingSlash(),
+		models.Url("https://webring.htmlhobbyist.com/list/").TrimTrailingSlash(),
 	}
 )
 
