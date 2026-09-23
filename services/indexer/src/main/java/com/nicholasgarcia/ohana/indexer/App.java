@@ -5,8 +5,15 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Time;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 
 public class App {
 
@@ -48,12 +55,13 @@ public class App {
                 PAGE_URL = result.getString("link");
                 RESPONSE_BODY = result.getString("response_body");
 
-                boolean isResultInvalid = PAGE_ID == -1 || SITE_ID == -1 || PAGE_URL.equals("");
+                boolean isResultInvalid = PAGE_ID == -1 || SITE_ID == -1 || PAGE_URL.equals("") || RESPONSE_BODY.equals("");
                 if (isResultInvalid) {
                     throw new Exception("invalid row values returned from database query");
                 }
 
-                System.out.println(RESPONSE_BODY);
+                System.out.println();
+                System.out.println("[" + PAGE_URL + "]");
 
                 // TODO: Extract text chunks from the page
                 // TODO: Compile the chunks into a single full text source too
@@ -86,5 +94,235 @@ public class App {
                 System.exit(1);
             }
         }
+    }
+}
+
+class htmlChunkExtractor {
+
+    private static final Set<String> BLOCK_TAGS = new HashSet<>(Arrays.asList(
+            "html",
+            "body",
+            "main",
+            "article",
+            "section",
+            "div",
+            "header",
+            "footer",
+            "aside",
+            "nav",
+            "p",
+            "li",
+            "blockquote",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "pre",
+            "td",
+            "th",
+            "dt",
+            "dd"
+    ));
+
+    private static final Set<String> SKIP_TAGS = new HashSet<>(Arrays.asList(
+            "script",
+            "style",
+            "noscript",
+            "template",
+            "meta",
+            "link"
+    ));
+
+    /**
+     * Parses HTML and extracts textual chunks.
+     */
+    public static List<String> extractTextChunks(String html) {
+        if (html == null || html.isBlank()) {
+            return List.of();
+        }
+
+        Document document = Jsoup.parse(html);
+
+        Element root = document.body();
+        if (root == null) {
+            root = document;
+        }
+
+        List<String> chunks = extractChunks(root, 1000);
+
+        List<String> cleanedChunks = new ArrayList<>();
+
+        for (String chunk : chunks) {
+            String cleaned = encodeUtf8(chunk);
+
+            if (!cleaned.isBlank()) {
+                cleanedChunks.add(cleaned);
+            }
+        }
+
+        return cleanedChunks;
+    }
+
+    /**
+     * Equivalent to the Python extract_chunks function.
+     */
+    private static List<String> extractChunks(Element element, int maxChars) {
+        if (element == null || SKIP_TAGS.contains(element.tagName())) {
+            return List.of();
+        }
+
+        List<Element> childBlocks = new ArrayList<>();
+
+        for (Element child : element.children()) {
+            if (BLOCK_TAGS.contains(child.tagName())) {
+                childBlocks.add(child);
+            }
+        }
+
+        /*
+         * If this is a block element with no nested block elements,
+         * treat the entire element as one text chunk.
+         */
+        if (BLOCK_TAGS.contains(element.tagName()) && childBlocks.isEmpty()) {
+            String text = normalizeText(element.text());
+
+            if (text.isEmpty()) {
+                return List.of();
+            }
+
+            return splitIntoChunks(text, maxChars);
+        }
+
+        List<String> chunks = new ArrayList<>();
+
+        /*
+         * Recurse only through direct child block elements.
+         */
+        for (Element child : element.children()) {
+            if (SKIP_TAGS.contains(child.tagName())) {
+                continue;
+            }
+
+            if (BLOCK_TAGS.contains(child.tagName())) {
+                chunks.addAll(extractChunks(child, maxChars));
+            }
+        }
+
+        /*
+         * If no block children produced text, use the element's
+         * complete textual content as a fallback.
+         */
+        if (chunks.isEmpty()) {
+            String text = normalizeText(element.text());
+
+            if (!text.isEmpty()) {
+                chunks.addAll(splitIntoChunks(text, maxChars));
+            }
+        }
+
+        return chunks;
+    }
+
+    /**
+     * Normalizes whitespace similarly to:
+     *
+     * " ".join(tag.get_text(" ", strip=True).split())
+     */
+    private static String normalizeText(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        return text
+                .replace('\u00A0', ' ')
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    /**
+     * Splits long text into chunks without splitting words.
+     *
+     * The original Python function accepts max_chars but does not currently use
+     * it. This implementation applies the limit.
+     */
+    private static List<String> splitIntoChunks(String text, int maxChars) {
+        if (text == null || text.isBlank()) {
+            return List.of();
+        }
+
+        if (maxChars <= 0 || text.length() <= maxChars) {
+            return List.of(text);
+        }
+
+        List<String> chunks = new ArrayList<>();
+        String[] words = text.split("\\s+");
+
+        StringBuilder currentChunk = new StringBuilder();
+
+        for (String word : words) {
+            if (currentChunk.length() == 0) {
+                currentChunk.append(word);
+                continue;
+            }
+
+            int candidateLength = currentChunk.length() + 1 + word.length();
+
+            if (candidateLength <= maxChars) {
+                currentChunk.append(' ').append(word);
+            } else {
+                chunks.add(currentChunk.toString());
+                currentChunk.setLength(0);
+                currentChunk.append(word);
+            }
+        }
+
+        if (currentChunk.length() > 0) {
+            chunks.add(currentChunk.toString());
+        }
+
+        return chunks;
+    }
+
+    /**
+     * Removes NUL characters and unpaired UTF-16 surrogate characters.
+     *
+     * Java strings are UTF-16, so this also removes invalid surrogate code
+     * units.
+     */
+    private static String encodeUtf8(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        StringBuilder result = new StringBuilder(text.length());
+
+        for (int i = 0; i < text.length(); i++) {
+            char character = text.charAt(i);
+
+            if (character == '\0') {
+                continue;
+            }
+
+            if (Character.isHighSurrogate(character)) {
+                if (i + 1 < text.length()
+                        && Character.isLowSurrogate(text.charAt(i + 1))) {
+
+                    result.append(character);
+                    result.append(text.charAt(++i));
+                }
+
+                continue;
+            }
+
+            if (Character.isLowSurrogate(character)) {
+                continue;
+            }
+
+            result.append(character);
+        }
+
+        return result.toString();
     }
 }
