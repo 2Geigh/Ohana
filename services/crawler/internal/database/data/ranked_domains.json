@@ -6523,5 +6523,6 @@
 	{ "domain": "starwars.com" },
 	{ "domain": "wealthsimple.com" },
 	{ "domain": "cp24.com" },
-	{ "domain": "meta.com" }
+	{ "domain": "meta.com" },
+	{ "domain": "github.blog" }
 ]
