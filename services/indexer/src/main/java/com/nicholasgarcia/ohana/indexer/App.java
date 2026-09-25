@@ -192,6 +192,12 @@ class page {
 
 public class App {
 
+    private static void logIteration(page p) {
+        System.out.println(
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")) + " [" + p.Url + "] " + p.Language
+        );
+    }
+
     public static void main(String[] args) {
 
         final String DB_HOST = System.getenv("DB_HOST");
@@ -241,10 +247,6 @@ public class App {
                 stmt.close();
                 p.VerifyDbQueryResults(connection);
 
-                System.out.println(
-                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")) + " [" + p.Url + "] " + p.Language
-                );
-
                 indexer.Index(p);
 
                 // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
@@ -291,9 +293,10 @@ public class App {
 
                 connection.commit();
                 connection.rollback();
+
+                logIteration(p);
                 System.gc();
             }
-
         } catch (SQLException e) {
             System.out.println("database/SQL error: " + e.getMessage());
             e.printStackTrace();
@@ -318,9 +321,4 @@ public class App {
             }
         }
     }
-
-}
-
-class htmlTextExtractor {
-
 }
