@@ -6,6 +6,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -32,7 +34,58 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
 class indexer {
-    
+
+    private static final Analyzer analyzer = new StandardAnalyzer();
+
+    public static final Path INDEX_PATH = Path.of("/data/lucene-index");
+
+    public static void Index(page p) {
+        org.apache.lucene.document.Document doc = new org.apache.lucene.document.Document();
+
+        try (
+                Directory index_dir = FSDirectory.open(INDEX_PATH); IndexWriter writer = new IndexWriter(index_dir, new IndexWriterConfig(analyzer));) {
+            doc.add(
+                    new StringField(
+                            "sql_page_id",
+                            Long.toString(p.Sql_id),
+                            Field.Store.YES));
+            doc.add(
+                    new StringField(
+                            "sql_site_id",
+                            Long.toString(p.Sql_site_id),
+                            Field.Store.YES));
+            doc.add(
+                    new StringField(
+                            "language",
+                            p.Language,
+                            Field.Store.YES));
+            doc.add(
+                    new TextField(
+                            "title",
+                            p.Title,
+                            Field.Store.NO));
+            doc.add(
+                    new TextField(
+                            "description",
+                            p.Description,
+                            Field.Store.NO));
+
+            doc.add(
+                    new TextField(
+                            "body",
+                            p.GetTextContent(),
+                            Field.Store.NO));
+
+            writer.updateDocument(
+                    new Term("sql_page_id", Long.toString(p.Sql_id)),
+                    doc);
+
+            writer.commit();
+        } catch (Exception e) {
+            System.err.println("index failed: " + e.getMessage());
+        }
+
+    }
 }
 
 class page {
@@ -68,6 +121,22 @@ class page {
         return htmlChunkExtractor.GetFullText(ResponseBody);
     }
 
+    public page(
+            long sqlId,
+            long sqlSiteId,
+            String url,
+            String title,
+            String description,
+            String responseBody) {
+
+        this.Sql_id = sqlId;
+        this.Sql_site_id = sqlSiteId;
+        this.Url = url;
+        this.Title = title;
+        this.Description = description;
+        this.ResponseBody = responseBody;
+    }
+
     public void VerifyDbQueryResults(Connection conn) throws Exception {
         String err_focus = "";
         if (Sql_id == null) {
@@ -100,6 +169,7 @@ class page {
 
         throw new Exception("invalid " + err_focus + " returned from database query");
     }
+
 }
 
 public class App {
@@ -115,16 +185,12 @@ public class App {
 
         Connection connection = null;
 
-        Path INDEX_PATH = Path.of("/data/lucene-index");
-
-        try (
-                Analyzer analyzer = new StandardAnalyzer(); Directory INDEX_DIRECTORY = FSDirectory.open(INDEX_PATH); IndexWriter writer = new IndexWriter(INDEX_DIRECTORY, new IndexWriterConfig(analyzer));) {
+        try {
             System.out.println("Connecting to PostgreSQL...");
             connection = DriverManager.getConnection(JDBC_URL, DB_USERNAME, DB_PASSWORD);
             System.out.println("Connected to PostgresSQL successfully.");
 
             while (true) {
-                page p = new page();
 
                 if (connection == null) {
                     return;
@@ -145,12 +211,14 @@ public class App {
                     continue;
                 }
 
-                p.Sql_id = result.getLong("page_id");
-                p.Sql_site_id = result.getLong("site_id");
-                p.Url = result.getString("link");
-                p.Title = result.getString("title");
-                p.Description = result.getString("description");
-                p.ResponseBody = result.getString("response_body");
+                page p = new page(
+                        result.getLong("page_id"),
+                        result.getLong("site_id"),
+                        result.getString("link"),
+                        result.getString("title"),
+                        result.getString("description"),
+                        result.getString("response_body")
+                );
 
                 result.close();
                 stmt.close();
@@ -159,45 +227,15 @@ public class App {
                 p.GetLanguage();
 
                 // System.out.println();
-                System.out.println("[" + p.Url + "] " + p.Language);
+                System.out.println(
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss")) + " [" + p.Url + "] " + p.Language
+                );
                 // List<String> chunks = htmlChunkExtractor.ExtractTextChunks(p.ResponseBody);
 
                 // for (String chunk : chunks) {
                 //     System.out.println(chunk);
                 // }
-                org.apache.lucene.document.Document doc = new org.apache.lucene.document.Document();
-
-                doc.add(new StringField(
-                        "sql_page_id",
-                        Long.toString(p.Sql_id),
-                        Field.Store.YES));
-                doc.add(new StringField(
-                        "sql_site_id",
-                        Long.toString(p.Sql_site_id),
-                        Field.Store.YES));
-                doc.add(new StringField(
-                        "language",
-                        p.Language,
-                        Field.Store.YES));
-                doc.add(new TextField(
-                        "title",
-                        p.Title,
-                        Field.Store.NO));
-                doc.add(new TextField(
-                        "description",
-                        p.Description,
-                        Field.Store.NO));
-
-                doc.add(new TextField(
-                        "body",
-                        p.GetTextContent(),
-                        Field.Store.NO));
-
-                writer.updateDocument(
-                        new Term("sql_page_id", Long.toString(p.Sql_id)),
-                        doc);
-
-                writer.commit();
+                indexer.Index(p);
 
                 // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
                 // Begin transaction
