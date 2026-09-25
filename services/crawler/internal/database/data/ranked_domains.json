@@ -6524,5 +6524,10 @@
 	{ "domain": "wealthsimple.com" },
 	{ "domain": "cp24.com" },
 	{ "domain": "meta.com" },
-	{ "domain": "github.blog" }
+	{ "domain": "github.blog" },
+	{ "domain": "notion.so" },
+	{ "domain": "imgix.com" },
+	{ "domain": "githubusercontent.com" },
+	{ "domain": "cursor.com" },
+	{ "domain": "claude.com" }
 ]

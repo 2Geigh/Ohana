@@ -5,15 +5,23 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
+
+import org.apache.tika.Tika;
+import org.apache.tika.langdetect.optimaize.OptimaizeLangDetector;
+import org.apache.tika.language.detect.LanguageDetector;
+import org.apache.tika.language.detect.LanguageResult;
 
 public class App {
 
@@ -27,6 +35,9 @@ public class App {
         final String JDBC_URL = "jdbc:postgresql://" + DB_HOST + ":" + DB_CONTAINER_PORT + "/" + DB_NAME;
 
         Connection connection = null;
+
+        LanguageDetector detector = new OptimaizeLangDetector().loadModels();
+
         try {
             System.out.println("Connecting to PostgreSQL...");
             connection = DriverManager.getConnection(JDBC_URL, DB_USERNAME, DB_PASSWORD);
@@ -35,14 +46,17 @@ public class App {
             while (true) {
                 int PAGE_ID = -1, SITE_ID = -1;
                 String PAGE_URL = "", RESPONSE_BODY = "";
+
+                connection.setAutoCommit(true);
+
                 PreparedStatement stmt = connection.prepareStatement(
-                        "SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link, pages.response_body FROM indexer_queue LEFT JOIN pages ON pages.id = indexer_queue.page_id ORDER BY pages.id ASC LIMIT 1;"
+                        "SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link, pages.response_body FROM indexer_queue LEFT JOIN pages ON pages.id = indexer_queue.page_id ORDER BY indexer_queue.id ASC LIMIT 1;"
                 );
                 ResultSet result = stmt.executeQuery();
 
                 boolean isIndexerQueueEmpty = !(result.next());
                 if (isIndexerQueueEmpty) {
-                    Duration.ofSeconds(1).wait();
+                    Thread.sleep(1000);
                     // TODO: then get the page that has been indexed the longest time ago.
 
                     stmt.close();
@@ -54,10 +68,43 @@ public class App {
                 SITE_ID = result.getInt("site_id");
                 PAGE_URL = result.getString("link");
                 RESPONSE_BODY = result.getString("response_body");
+                result.close();
+                stmt.close();
 
-                boolean isResultInvalid = PAGE_ID == -1 || SITE_ID == -1 || PAGE_URL.equals("") || RESPONSE_BODY.equals("");
-                if (isResultInvalid) {
-                    throw new Exception("invalid row values returned from database query");
+                if (PAGE_ID == -1) {
+                    System.err.print("invalid page_id returned from database query: " + PAGE_ID);
+                    PreparedStatement s = connection.prepareStatement(
+                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
+                    s.execute();
+                    s.close();
+                    continue;
+                }
+
+                if (SITE_ID == -1) {
+                    System.err.print("invalid site_id returned from database query: " + SITE_ID);
+                    PreparedStatement s = connection.prepareStatement(
+                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
+                    s.execute();
+                    s.close();
+                    continue;
+                }
+
+                if (PAGE_URL.equals("")) {
+                    System.err.print("invalid page_url returned from database query: " + PAGE_URL);
+                    PreparedStatement s = connection.prepareStatement(
+                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
+                    s.execute();
+                    s.close();
+                    continue;
+                }
+
+                if (RESPONSE_BODY.equals("")) {
+                    System.err.print("invalid response_body returned from database query: " + RESPONSE_BODY);
+                    PreparedStatement s = connection.prepareStatement(
+                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
+                    s.execute();
+                    s.close();
+                    continue;
                 }
 
                 System.out.println();
@@ -65,15 +112,66 @@ public class App {
 
                 List<String> chunks = htmlChunkExtractor.ExtractTextChunks(RESPONSE_BODY);
                 String text = htmlChunkExtractor.GetFullText(RESPONSE_BODY);
+
                 System.out.println(text);
                 for (String chunk : chunks) {
                     System.out.println(chunk);
                 }
 
+                LanguageResult page_language = detector.detect(text);
+                String page_language_code = "xx";
+                if (page_language.isReasonablyCertain()) {
+                    page_language_code = page_language.getLanguage().substring(0, 2);
+                }
+                System.out.println(page_language_code);
+
                 // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
+                // Begin transaction
+                connection.setAutoCommit(false);
+
+                stmt = connection.prepareStatement(
+                        "DELETE FROM keywords WHERE page_id = ?;"
+                );
+                stmt.setObject(1, PAGE_ID);
+                stmt.executeUpdate();
                 stmt.close();
-                result.close();
-                break;
+
+                // stmt = connection.prepareStatement(
+                //         "UPDATE pages SET embedding = ?, page_text = ?, date_last_indexed = ?, text_language = ? WHERE id = ?;"
+                // );
+                // stmt.setObject(1, "embedding");
+                // stmt.setObject(2, text);
+                // stmt.setObject(3, new Date());
+                // stmt.setObject(4, page_language_code);
+                // stmt.setObject(5, PAGE_ID);
+                // int rows_updated = stmt.executeUpdate();
+                // if (rows_updated == 0) {
+                //     throw new Exception("execute UPDATE pages failed");
+                // }
+                // stmt.close();
+                stmt = connection.prepareStatement(
+                        "DELETE FROM indexer_queue WHERE page_id = ?;"
+                );
+                stmt.setObject(1, PAGE_ID);
+                int rows_updated = stmt.executeUpdate();
+                if (rows_updated == 0) {
+                    throw new Exception("No row found to delete in indexer_queue with page_id = " + PAGE_ID);
+                }
+                stmt.close();
+
+                stmt = connection.prepareStatement(
+                        "INSERT INTO ranking_engine_queue (page_id, site_id) VALUES (?, ?);"
+                );
+                stmt.setObject(1, PAGE_ID);
+                stmt.setObject(2, SITE_ID);
+                rows_updated = stmt.executeUpdate();
+                if (rows_updated == 0) {
+                    throw new Exception("INSERT INTO ranking_engine_queue failed");
+                }
+                stmt.close();
+
+                connection.commit();
+                connection.rollback();
             }
 
         } catch (SQLException e) {
@@ -100,6 +198,7 @@ public class App {
             }
         }
     }
+
 }
 
 class htmlChunkExtractor {
