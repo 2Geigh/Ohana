@@ -31,6 +31,77 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 
+class indexer {
+    
+}
+
+class page {
+
+    public Long Sql_id;
+    public Long Sql_site_id;
+    public String Title;
+    public String Description;
+    public String Url;
+    // public String TextContent;
+    public String ResponseBody;
+    public String Language;
+
+    private static final LanguageDetector detector = new OptimaizeLangDetector().loadModels();
+
+    private LanguageResult languageResult;
+
+    public void GetLanguage() {
+        languageResult = detector.detect(
+                GetTextContent()
+        );
+
+        if (languageResult.getLanguage().length() < 2) {
+            Language = "xx";
+            return;
+        }
+
+        Language = languageResult.getLanguage().substring(0, 2);
+    }
+
+    public String GetTextContent() {
+        // TextContent = htmlChunkExtractor.GetFullText(ResponseBody);
+        return htmlChunkExtractor.GetFullText(ResponseBody);
+    }
+
+    public void VerifyDbQueryResults(Connection conn) throws Exception {
+        String err_focus = "";
+        if (Sql_id == null) {
+            err_focus = "page_id";
+        } else if (Sql_site_id == null) {
+            err_focus = "site_id";
+        } else if (Url == null) {
+            err_focus = "link";
+        } else if (ResponseBody == null) {
+            err_focus = "response_body";
+        } else if (Title == null) {
+            err_focus = "title";
+        } else if (Description == null) {
+            err_focus = "description";
+        }
+
+        boolean areResultsValid = err_focus.isEmpty();
+
+        if (areResultsValid) {
+            return;
+        }
+
+        try (
+                conn; PreparedStatement s = conn.prepareStatement(
+                        "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");) {
+            s.executeUpdate();
+        } catch (Exception e) {
+            System.err.println("dequeue page from indexer_queue failed: " + e.getMessage());
+        }
+
+        throw new Exception("invalid " + err_focus + " returned from database query");
+    }
+}
+
 public class App {
 
     public static void main(String[] args) {
@@ -44,8 +115,6 @@ public class App {
 
         Connection connection = null;
 
-        LanguageDetector detector = new OptimaizeLangDetector().loadModels();
-
         Path INDEX_PATH = Path.of("/data/lucene-index");
 
         try (
@@ -55,17 +124,15 @@ public class App {
             System.out.println("Connected to PostgresSQL successfully.");
 
             while (true) {
-                long PAGE_ID = -1, SITE_ID = -1;
-                String PAGE_URL = "", PAGE_TITLE = "", PAGE_DESCRIPTION = "", RESPONSE_BODY = "";
+                page p = new page();
 
                 if (connection == null) {
                     return;
                 }
-                connection.setAutoCommit(true); 
+                connection.setAutoCommit(true);
 
                 PreparedStatement stmt = connection.prepareStatement(
-                        "SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link, pages.response_body, pages.description, pages.title FROM indexer_queue LEFT JOIN pages ON pages.id = indexer_queue.page_id ORDER BY indexer_queue.id ASC LIMIT 1;"
-                );
+                        "SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link, pages.response_body, pages.description, pages.title FROM indexer_queue LEFT JOIN pages ON pages.id = indexer_queue.page_id ORDER BY indexer_queue.id ASC LIMIT 1;");
                 ResultSet result = stmt.executeQuery();
 
                 boolean isIndexerQueueEmpty = !(result.next());
@@ -78,135 +145,67 @@ public class App {
                     continue;
                 }
 
-                PAGE_ID = result.getInt("page_id");
-                SITE_ID = result.getInt("site_id");
-                PAGE_URL = result.getString("link");
-                PAGE_TITLE = result.getString("title");
-                PAGE_DESCRIPTION = result.getString("description");
-                RESPONSE_BODY = result.getString("response_body");
+                p.Sql_id = result.getLong("page_id");
+                p.Sql_site_id = result.getLong("site_id");
+                p.Url = result.getString("link");
+                p.Title = result.getString("title");
+                p.Description = result.getString("description");
+                p.ResponseBody = result.getString("response_body");
+
                 result.close();
                 stmt.close();
+                p.VerifyDbQueryResults(connection);
 
-                if (PAGE_ID == -1) {
-                    System.err.print("invalid page_id returned from database query: " + PAGE_ID);
-                    PreparedStatement s = connection.prepareStatement(
-                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
-                    s.execute();
-                    s.close();
-                    continue;
-                }
-
-                if (SITE_ID == -1) {
-                    System.err.print("invalid site_id returned from database query: " + SITE_ID);
-                    PreparedStatement s = connection.prepareStatement(
-                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
-                    s.execute();
-                    s.close();
-                    continue;
-                }
-
-                if (PAGE_URL.isEmpty()) {
-                    System.err.print("invalid page_url returned from database query: " + PAGE_URL);
-                    PreparedStatement s = connection.prepareStatement(
-                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
-                    s.execute();
-                    s.close();
-                    continue;
-                }
-
-                if (RESPONSE_BODY.isEmpty()) {
-                    System.err.print("invalid response_body returned from database query: " + RESPONSE_BODY);
-                    PreparedStatement s = connection.prepareStatement(
-                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
-                    s.execute();
-                    s.close();
-                    continue;
-                }
-
-                if (PAGE_TITLE.isEmpty()) {
-                    System.err.print("invalid title returned from database query: " + PAGE_TITLE);
-                    PreparedStatement s = connection.prepareStatement(
-                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
-                    s.execute();
-                    s.close();
-                    continue;
-                }
-
-                if (PAGE_DESCRIPTION.isEmpty()) {
-                    System.err.print("invalid description returned from database query: " + PAGE_DESCRIPTION);
-                    PreparedStatement s = connection.prepareStatement(
-                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
-                    s.execute();
-                    s.close();
-                    continue;
-                }
+                p.GetLanguage();
 
                 // System.out.println();
-                // System.out.println("[" + PAGE_URL + "]");
-                List<String> chunks = htmlChunkExtractor.ExtractTextChunks(RESPONSE_BODY);
-                String text = htmlChunkExtractor.GetFullText(RESPONSE_BODY);
+                System.out.println("[" + p.Url + "] " + p.Language);
+                // List<String> chunks = htmlChunkExtractor.ExtractTextChunks(p.ResponseBody);
 
-                // System.out.println(text);
                 // for (String chunk : chunks) {
                 //     System.out.println(chunk);
                 // }
-                LanguageResult page_language = detector.detect(text);
-                String page_language_code = "xx";
-
-                if (page_language.getLanguage().length() >= 2) {
-                    page_language_code = page_language.getLanguage().substring(0, 2);
-                }
-                // System.out.println(page_language_code);
-
                 org.apache.lucene.document.Document doc = new org.apache.lucene.document.Document();
 
                 doc.add(new StringField(
                         "sql_page_id",
-                        Long.toString(PAGE_ID),
-                        Field.Store.YES
-                ));
+                        Long.toString(p.Sql_id),
+                        Field.Store.YES));
                 doc.add(new StringField(
                         "sql_site_id",
-                        Long.toString(SITE_ID),
-                        Field.Store.YES
-                ));
+                        Long.toString(p.Sql_site_id),
+                        Field.Store.YES));
                 doc.add(new StringField(
                         "language",
-                        page_language_code,
+                        p.Language,
                         Field.Store.YES));
                 doc.add(new TextField(
                         "title",
-                        PAGE_TITLE,
-                        Field.Store.NO
-                ));
+                        p.Title,
+                        Field.Store.NO));
                 doc.add(new TextField(
                         "description",
-                        PAGE_DESCRIPTION,
-                        Field.Store.NO
-                ));
+                        p.Description,
+                        Field.Store.NO));
 
                 doc.add(new TextField(
                         "body",
-                        text,
-                        Field.Store.NO
-                ));
+                        p.GetTextContent(),
+                        Field.Store.NO));
 
                 writer.updateDocument(
-                        new Term("sql_page_id", Long.toString(PAGE_ID)),
-                        doc
-                );
+                        new Term("sql_page_id", Long.toString(p.Sql_id)),
+                        doc);
 
                 writer.commit();
 
                 // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
                 // Begin transaction
-                connection
-                        .setAutoCommit(false);
+                connection.setAutoCommit(false);
 
                 stmt = connection.prepareStatement(
-                        "DELETE FROM keywords WHERE page_id = ?;"
-                );
-                stmt.setObject(1, PAGE_ID);
+                        "DELETE FROM keywords WHERE page_id = ?;");
+                stmt.setObject(1, p.Sql_id);
                 stmt.executeUpdate();
                 stmt.close();
 
@@ -224,20 +223,18 @@ public class App {
                 // }
                 // stmt.close();
                 stmt = connection.prepareStatement(
-                        "DELETE FROM indexer_queue WHERE page_id = ?;"
-                );
-                stmt.setObject(1, PAGE_ID);
+                        "DELETE FROM indexer_queue WHERE page_id = ?;");
+                stmt.setObject(1, p.Sql_id);
                 int rows_updated = stmt.executeUpdate();
                 if (rows_updated == 0) {
-                    throw new Exception("No row found to delete in indexer_queue with page_id = " + PAGE_ID);
+                    throw new Exception("No row found to delete in indexer_queue with page_id = " + p.Sql_id);
                 }
                 stmt.close();
 
                 stmt = connection.prepareStatement(
-                        "INSERT INTO ranking_engine_queue (page_id, site_id) VALUES (?, ?);"
-                );
-                stmt.setObject(1, PAGE_ID);
-                stmt.setObject(2, SITE_ID);
+                        "INSERT INTO ranking_engine_queue (page_id, site_id) VALUES (?, ?);");
+                stmt.setObject(1, p.Sql_id);
+                stmt.setObject(2, p.Sql_site_id);
                 rows_updated = stmt.executeUpdate();
                 if (rows_updated == 0) {
                     throw new Exception("INSERT INTO ranking_engine_queue failed");
@@ -246,6 +243,7 @@ public class App {
 
                 connection.commit();
                 connection.rollback();
+                System.gc();
             }
 
         } catch (SQLException e) {
