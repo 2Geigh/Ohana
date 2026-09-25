@@ -1,15 +1,13 @@
 package com.nicholasgarcia.ohana.indexer;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -18,10 +16,20 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 
-import org.apache.tika.Tika;
 import org.apache.tika.langdetect.optimaize.OptimaizeLangDetector;
 import org.apache.tika.language.detect.LanguageDetector;
 import org.apache.tika.language.detect.LanguageResult;
+
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.StringField;
+import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 
 public class App {
 
@@ -38,19 +46,25 @@ public class App {
 
         LanguageDetector detector = new OptimaizeLangDetector().loadModels();
 
-        try {
+        Path INDEX_PATH = Path.of("/data/lucene-index");
+
+        try (
+                Analyzer analyzer = new StandardAnalyzer(); Directory INDEX_DIRECTORY = FSDirectory.open(INDEX_PATH); IndexWriter writer = new IndexWriter(INDEX_DIRECTORY, new IndexWriterConfig(analyzer));) {
             System.out.println("Connecting to PostgreSQL...");
             connection = DriverManager.getConnection(JDBC_URL, DB_USERNAME, DB_PASSWORD);
             System.out.println("Connected to PostgresSQL successfully.");
 
             while (true) {
-                int PAGE_ID = -1, SITE_ID = -1;
-                String PAGE_URL = "", RESPONSE_BODY = "";
+                long PAGE_ID = -1, SITE_ID = -1;
+                String PAGE_URL = "", PAGE_TITLE = "", PAGE_DESCRIPTION = "", RESPONSE_BODY = "";
 
-                connection.setAutoCommit(true);
+                if (connection == null) {
+                    return;
+                }
+                connection.setAutoCommit(true); 
 
                 PreparedStatement stmt = connection.prepareStatement(
-                        "SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link, pages.response_body FROM indexer_queue LEFT JOIN pages ON pages.id = indexer_queue.page_id ORDER BY indexer_queue.id ASC LIMIT 1;"
+                        "SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link, pages.response_body, pages.description, pages.title FROM indexer_queue LEFT JOIN pages ON pages.id = indexer_queue.page_id ORDER BY indexer_queue.id ASC LIMIT 1;"
                 );
                 ResultSet result = stmt.executeQuery();
 
@@ -67,6 +81,8 @@ public class App {
                 PAGE_ID = result.getInt("page_id");
                 SITE_ID = result.getInt("site_id");
                 PAGE_URL = result.getString("link");
+                PAGE_TITLE = result.getString("title");
+                PAGE_DESCRIPTION = result.getString("description");
                 RESPONSE_BODY = result.getString("response_body");
                 result.close();
                 stmt.close();
@@ -89,7 +105,7 @@ public class App {
                     continue;
                 }
 
-                if (PAGE_URL.equals("")) {
+                if (PAGE_URL.isEmpty()) {
                     System.err.print("invalid page_url returned from database query: " + PAGE_URL);
                     PreparedStatement s = connection.prepareStatement(
                             "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
@@ -98,7 +114,7 @@ public class App {
                     continue;
                 }
 
-                if (RESPONSE_BODY.equals("")) {
+                if (RESPONSE_BODY.isEmpty()) {
                     System.err.print("invalid response_body returned from database query: " + RESPONSE_BODY);
                     PreparedStatement s = connection.prepareStatement(
                             "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
@@ -107,27 +123,85 @@ public class App {
                     continue;
                 }
 
-                System.out.println();
-                System.out.println("[" + PAGE_URL + "]");
+                if (PAGE_TITLE.isEmpty()) {
+                    System.err.print("invalid title returned from database query: " + PAGE_TITLE);
+                    PreparedStatement s = connection.prepareStatement(
+                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
+                    s.execute();
+                    s.close();
+                    continue;
+                }
 
+                if (PAGE_DESCRIPTION.isEmpty()) {
+                    System.err.print("invalid description returned from database query: " + PAGE_DESCRIPTION);
+                    PreparedStatement s = connection.prepareStatement(
+                            "DELETE FROM indexer_queue WHERE id = ( SELECT id FROM indexer_queue ORDER BY id DESC LIMIT 1\n);");
+                    s.execute();
+                    s.close();
+                    continue;
+                }
+
+                // System.out.println();
+                // System.out.println("[" + PAGE_URL + "]");
                 List<String> chunks = htmlChunkExtractor.ExtractTextChunks(RESPONSE_BODY);
                 String text = htmlChunkExtractor.GetFullText(RESPONSE_BODY);
 
-                System.out.println(text);
-                for (String chunk : chunks) {
-                    System.out.println(chunk);
-                }
-
+                // System.out.println(text);
+                // for (String chunk : chunks) {
+                //     System.out.println(chunk);
+                // }
                 LanguageResult page_language = detector.detect(text);
                 String page_language_code = "xx";
-                if (page_language.isReasonablyCertain()) {
+
+                if (page_language.getLanguage().length() >= 2) {
                     page_language_code = page_language.getLanguage().substring(0, 2);
                 }
-                System.out.println(page_language_code);
+                // System.out.println(page_language_code);
+
+                org.apache.lucene.document.Document doc = new org.apache.lucene.document.Document();
+
+                doc.add(new StringField(
+                        "sql_page_id",
+                        Long.toString(PAGE_ID),
+                        Field.Store.YES
+                ));
+                doc.add(new StringField(
+                        "sql_site_id",
+                        Long.toString(SITE_ID),
+                        Field.Store.YES
+                ));
+                doc.add(new StringField(
+                        "language",
+                        page_language_code,
+                        Field.Store.YES));
+                doc.add(new TextField(
+                        "title",
+                        PAGE_TITLE,
+                        Field.Store.NO
+                ));
+                doc.add(new TextField(
+                        "description",
+                        PAGE_DESCRIPTION,
+                        Field.Store.NO
+                ));
+
+                doc.add(new TextField(
+                        "body",
+                        text,
+                        Field.Store.NO
+                ));
+
+                writer.updateDocument(
+                        new Term("sql_page_id", Long.toString(PAGE_ID)),
+                        doc
+                );
+
+                writer.commit();
 
                 // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
                 // Begin transaction
-                connection.setAutoCommit(false);
+                connection
+                        .setAutoCommit(false);
 
                 stmt = connection.prepareStatement(
                         "DELETE FROM keywords WHERE page_id = ?;"
@@ -238,7 +312,8 @@ class htmlChunkExtractor {
             "noscript",
             "template",
             "meta",
-            "link"
+            "link",
+            "title"
     ));
 
     public static String GetFullText(String html) {

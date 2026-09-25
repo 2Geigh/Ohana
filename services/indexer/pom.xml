@@ -82,6 +82,22 @@
         <version>4.0.0</version>
         <scope>compile</scope>
     </dependency>
+
+    <!-- Source: https://mvnrepository.com/artifact/org.apache.lucene/lucene-core -->
+    <dependency>
+        <groupId>org.apache.lucene</groupId>
+        <artifactId>lucene-core</artifactId>
+        <version>10.5.1</version>
+        <scope>compile</scope>
+    </dependency>
+
+    <!-- Source: https://mvnrepository.com/artifact/org.apache.lucene/lucene-analysis-common -->
+    <dependency>
+        <groupId>org.apache.lucene</groupId>
+        <artifactId>lucene-analysis-common</artifactId>
+        <version>10.5.1</version>
+        <scope>compile</scope>
+    </dependency>
   </dependencies>
 
   <build>
