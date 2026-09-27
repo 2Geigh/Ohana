@@ -13,3 +13,6 @@
 /services/indexer/build/classes/java/main/com/nicholasgarcia/ohana/indexer
 /services/indexer/target
 /services/indexer/.DS_Store
+/services/query_engine/obj/*
+/services/query_engine/bin/Release/net10.0
+/services/query_engine/.idea/.idea.query_engine.dir/.idea
