@@ -8,11 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.Date;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -198,6 +194,87 @@ public class App {
         );
     }
 
+    private static void updateDatabase(Connection conn, page p) throws Exception {
+        try {
+            conn.setAutoCommit(false); // Begin transaction
+        } catch (SQLException e) {
+            throw new Exception("DELETE FROM keywords failed: " + e.getMessage());
+        }
+
+        try (
+                PreparedStatement stmt = conn.prepareStatement(
+                        "DELETE FROM keywords WHERE page_id = ?;");) {
+            stmt.setObject(1, p.Sql_id);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            conn.rollback();
+            throw new Exception("DELETE FROM keywords failed: " + e.getMessage());
+        }
+
+        try (
+                PreparedStatement stmt = conn.prepareStatement(
+                        "UPDATE pages SET page_text = ?, date_last_indexed = ?, text_language = ? WHERE id = ?;");) {
+            // stmt.setObject(1, "embedding");
+            stmt.setObject(1, p.GetTextContent());
+            stmt.setObject(2, new java.sql.Timestamp(System.currentTimeMillis()));
+            stmt.setObject(3, p.Language);
+            stmt.setObject(4, p.Sql_id);
+            int rows_updated = stmt.executeUpdate();
+            if (rows_updated == 0) {
+                throw new Exception("execute UPDATE pages failed");
+            }
+        } catch (SQLException e) {
+            conn.rollback();
+            throw new Exception("UPDATE pages failed: " + e.getMessage());
+        }
+
+        try (
+                PreparedStatement stmt = conn.prepareStatement(
+                        "DELETE FROM indexer_queue WHERE page_id = ?;");) {
+            stmt.setObject(1, p.Sql_id);
+            int rows_updated = stmt.executeUpdate();
+            if (rows_updated == 0) {
+                throw new Exception("No row found to delete in indexer_queue with page_id = " + p.Sql_id);
+            }
+        } catch (SQLException e) {
+            conn.rollback();
+            throw new Exception("DELETE FROM indexer_queue failed: " + e.getMessage());
+        } catch (Exception e) {
+            conn.rollback();
+            System.err.println("DELETE FROM indexer_queue failed: " + e.getMessage());
+        }
+
+        try (
+                PreparedStatement stmt = conn.prepareStatement(
+                        "INSERT INTO ranking_engine_queue (page_id, site_id) VALUES (?, ?);");) {
+            stmt.setObject(1, p.Sql_id);
+            stmt.setObject(2, p.Sql_site_id);
+            int rows_updated = stmt.executeUpdate();
+            if (rows_updated == 0) {
+                throw new Exception("INSERT INTO ranking_engine_queue failed");
+            }
+        } catch (SQLException e) {
+            conn.rollback();
+            throw new Exception("INSERT INTO ranking_engine_queue failed: " + e.getMessage());
+        } catch (Exception e) {
+            conn.rollback();
+            throw new Exception("INSERT INTO ranking_engine_queue failed: " + e.getMessage());
+        }
+
+        try {
+            conn.commit();
+        } catch (SQLException e) {
+            conn.rollback();
+            throw new Exception("commit transaction failed: " + e.getMessage());
+        }
+
+        try {
+            conn.setAutoCommit(true);
+        } catch (SQLException e) {
+            throw new Exception("enable autocommit (disable transaction) failed: " + e.getMessage());
+        }
+    }
+
     public static void main(String[] args) {
 
         final String DB_HOST = System.getenv("DB_HOST");
@@ -207,118 +284,55 @@ public class App {
         final String DB_NAME = System.getenv("DB_NAME");
         final String JDBC_URL = "jdbc:postgresql://" + DB_HOST + ":" + DB_CONTAINER_PORT + "/" + DB_NAME;
 
-        Connection connection = null;
-
-        try {
-            System.out.println("Connecting to PostgreSQL...");
-            connection = DriverManager.getConnection(JDBC_URL, DB_USERNAME, DB_PASSWORD);
-            System.out.println("Connected to PostgresSQL successfully.");
-
+        try (Connection connection = DriverManager.getConnection(JDBC_URL, DB_USERNAME, DB_PASSWORD);) {
             while (true) {
 
-                if (connection == null) {
-                    return;
-                }
-                connection.setAutoCommit(true);
+                page p;
 
-                PreparedStatement stmt = connection.prepareStatement(
-                        "SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link, pages.response_body, pages.description, pages.title FROM indexer_queue LEFT JOIN pages ON pages.id = indexer_queue.page_id ORDER BY indexer_queue.id ASC LIMIT 1;");
-                ResultSet result = stmt.executeQuery();
+                try (
+                        PreparedStatement stmt
+                        = connection
+                                .prepareStatement(
+                                        "SELECT indexer_queue.page_id, indexer_queue.site_id, pages.link, pages.response_body, pages.description, pages.title FROM indexer_queue LEFT JOIN pages ON pages.id = indexer_queue.page_id ORDER BY indexer_queue.id ASC LIMIT 1;");) {
+                            ResultSet result = stmt.executeQuery();
 
-                boolean isIndexerQueueEmpty = !(result.next());
-                if (isIndexerQueueEmpty) {
-                    Thread.sleep(1000);
-                    // TODO: then get the page that has been indexed the longest time ago.
+                            boolean isIndexerQueueEmpty = !(result.next());
+                            if (isIndexerQueueEmpty) {
+                                Thread.sleep(1000);
+                                // TODO: then get the page that has been indexed the longest time ago.
+                                continue;
+                            }
 
-                    stmt.close();
-                    result.close();
-                    continue;
-                }
+                            p = new page(
+                                    result.getLong("page_id"),
+                                    result.getLong("site_id"),
+                                    result.getString("link"),
+                                    result.getString("title"),
+                                    result.getString("description"),
+                                    result.getString("response_body")
+                            );
 
-                page p = new page(
-                        result.getLong("page_id"),
-                        result.getLong("site_id"),
-                        result.getString("link"),
-                        result.getString("title"),
-                        result.getString("description"),
-                        result.getString("response_body")
-                );
-                result.close();
-                stmt.close();
-                p.VerifyDbQueryResults(connection);
+                        } catch (SQLException e) {
+                            throw new Exception("prepare stmt failed: " + e.getMessage());
+                        }
 
-                indexer.Index(p);
+                        try {
+                            p.VerifyDbQueryResults(connection);
+                        } catch (Exception e) {
+                            throw new Exception("some aspect of the page data initialization failed: " + e.getMessage());
+                        }
 
-                // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
-                // Begin transaction
-                connection.setAutoCommit(false);
+                        indexer.Index(p);
+                        // TODO: Run [sentence-transformers/all-MiniLM-L6-v2]("https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2") in ONNX runtime
+                        updateDatabase(connection, p);
 
-                stmt = connection.prepareStatement(
-                        "DELETE FROM keywords WHERE page_id = ?;");
-                stmt.setObject(1, p.Sql_id);
-                stmt.executeUpdate();
-                stmt.close();
-
-                // stmt = connection.prepareStatement(
-                //         "UPDATE pages SET embedding = ?, page_text = ?, date_last_indexed = ?, text_language = ? WHERE id = ?;"
-                // );
-                // stmt.setObject(1, "embedding");
-                // stmt.setObject(2, text);
-                // stmt.setObject(3, new Date());
-                // stmt.setObject(4, page_language_code);
-                // stmt.setObject(5, PAGE_ID);
-                // int rows_updated = stmt.executeUpdate();
-                // if (rows_updated == 0) {
-                //     throw new Exception("execute UPDATE pages failed");
-                // }
-                // stmt.close();
-                stmt = connection.prepareStatement(
-                        "DELETE FROM indexer_queue WHERE page_id = ?;");
-                stmt.setObject(1, p.Sql_id);
-                int rows_updated = stmt.executeUpdate();
-                if (rows_updated == 0) {
-                    throw new Exception("No row found to delete in indexer_queue with page_id = " + p.Sql_id);
-                }
-                stmt.close();
-
-                stmt = connection.prepareStatement(
-                        "INSERT INTO ranking_engine_queue (page_id, site_id) VALUES (?, ?);");
-                stmt.setObject(1, p.Sql_id);
-                stmt.setObject(2, p.Sql_site_id);
-                rows_updated = stmt.executeUpdate();
-                if (rows_updated == 0) {
-                    throw new Exception("INSERT INTO ranking_engine_queue failed");
-                }
-                stmt.close();
-
-                connection.commit();
-                connection.rollback();
-
-                logIteration(p);
-                System.gc();
+                        logIteration(p);
+                        System.gc();
             }
-        } catch (SQLException e) {
-            System.out.println("database/SQL error: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(e.getErrorCode());
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            System.err.println(e.getMessage());
             e.printStackTrace();
             System.exit(1);
-        } finally {
-            try {
-                if (connection != null) {
-                    connection.close();
-                }
-            } catch (SQLException exc) {
-                System.out.println("database/SQL error: " + exc.getMessage());
-                exc.printStackTrace();
-                System.exit(exc.getErrorCode());
-            } catch (Exception e) {
-                System.out.println(e.getMessage());
-                e.printStackTrace();
-                System.exit(1);
-            }
         }
     }
 }
