@@ -1,17 +1,16 @@
-ARG RUST_VERSION=1.93
 ARG APP_NAME=ohana-query_engine
 
-FROM rust:1-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
 
 WORKDIR /app
 
-COPY Cargo.toml Cargo.lock ./
-COPY src ./
+# COPY Cargo.toml Cargo.lock ./
+# COPY src ./
 
-RUN cargo build --release
+# RUN cargo build --release
 
-FROM alpine:3 AS final
+FROM mcr.microsoft.com/dotnet/runtime:10.0-alpine AS dist
 
-COPY --from=build /app/target/release/query_engine /bin/query_engine
+# COPY --from=build /app/target/release/query_engine /bin/query_engine
 
-CMD ["/bin/query_engine"]
+# CMD ["/bin/query_engine"]
