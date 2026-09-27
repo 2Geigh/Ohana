@@ -6529,5 +6529,21 @@
 	{ "domain": "imgix.com" },
 	{ "domain": "githubusercontent.com" },
 	{ "domain": "cursor.com" },
-	{ "domain": "claude.com" }
+	{ "domain": "claude.com" },
+	{ "domain": "calendly.com" },
+	{ "domain": "mediawiki.org" },
+	{ "domain": "w.wiki" },
+	{ "domain": "wikibooks.org" },
+	{ "domain": "wikidata.org" },
+	{ "domain": "wikifunctions.org" },
+	{ "domain": "wikimedia.org" },
+	{ "domain": "wikimediafoundation.org" },
+	{ "domain": "wikinews.org" },
+	{ "domain": "wikipedia.org" },
+	{ "domain": "wikiquote.org" },
+	{ "domain": "wikisource.org" },
+	{ "domain": "wikiversity.org" },
+	{ "domain": "wikivoyage.org" },
+	{ "domain": "wiktionary.org" },
+	{ "domain": "wmfusercontent.org" }
 ]
