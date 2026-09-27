@@ -23,15 +23,15 @@ Implemented with [Postgresql](https://postgresql.org).
 
 ### Indexer
 
-Implemented in [Python](https://python.org).
+Implemented in [Java](https://java.com).
 
 ### Ranking Engine
 
-Implemented in [Java](https://java.com).
+Implemented in [Python](https://python.org).
 
 ### Query Engine
 
-Implemented in [Rust](https://rust-lang.dev).
+Implemented in [C#]([https://rust-lang.dev](https://learn.microsoft.com/en-us/dotnet/csharp/)).
 
 ### Client
 
