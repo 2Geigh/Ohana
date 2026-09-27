@@ -1,16 +1,22 @@
-ARG APP_NAME=ohana-query_engine
+ARG DOTNET_SDK_VERSION=10.0
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_SDK_VERSION}-alpine AS build
 
 WORKDIR /app
 
-# COPY Cargo.toml Cargo.lock ./
-# COPY src ./
+COPY . .
 
-# RUN cargo build --release
+ARG DOTNET_SDK_VERSION=10.0
 
-FROM mcr.microsoft.com/dotnet/runtime:10.0-alpine AS dist
+RUN dotnet publish -c Release -f net${DOTNET_SDK_VERSION}
 
-# COPY --from=build /app/target/release/query_engine /bin/query_engine
 
-# CMD ["/bin/query_engine"]
+FROM mcr.microsoft.com/dotnet/runtime:${DOTNET_SDK_VERSION}-alpine AS dist
+
+ARG DOTNET_SDK_VERSION=10.0
+
+WORKDIR /app
+
+COPY --from=build /app/bin/Release/net${DOTNET_SDK_VERSION} ./bin
+
+CMD ["dotnet", "/app/bin/query_engine.dll"]
