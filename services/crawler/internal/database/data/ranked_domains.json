@@ -6545,5 +6545,9 @@
 	{ "domain": "wikiversity.org" },
 	{ "domain": "wikivoyage.org" },
 	{ "domain": "wiktionary.org" },
-	{ "domain": "wmfusercontent.org" }
+	{ "domain": "wmfusercontent.org" },
+	{ "domain": "imgur.com" },
+	{ "domain": "coindesk.com" },
+	{ "domain": "forecast.io" },
+	{ "domain": "twilio.com" }
 ]

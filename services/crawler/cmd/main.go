@@ -81,6 +81,8 @@ var (
 		models.Url("https://32bit.cafe/"),
 		models.Url("https://wiki.melonland.net/web_revival").TrimTrailingSlash(),
 		models.Url("https://webring.htmlhobbyist.com/list/").TrimTrailingSlash(),
+		models.Url("https://taylor.town/about").TrimTrailingSlash(),
+		models.Url("https://rip.so/").TrimTrailingSlash(),
 	}
 )
 
