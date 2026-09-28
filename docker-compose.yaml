@@ -61,6 +61,20 @@ services:
                 condition: service_healthy
         env_file:
             - ./.env
+        volumes:
+            - index-data:/data/lucene-index
+
+    # index_gui:
+    #     build:
+    #         context: ./services/index_gui
+    #         dockerfile: ./dockerfile
+    #         args:
+    #             LUKE_VERSION: "10.5.1"
+    #     volumes:
+    #         - index-data:/source-index:ro
+    #         - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    #     # environment:
+    #     # DISPLAY: ${DISPLAY}
 
     ranking_engine:
         networks:
@@ -80,6 +94,8 @@ services:
             context: ./services/query_engine
             dockerfile: ./dockerfile
         container_name: ohana-query_engine
+        volumes:
+            - index-data:/data/lucene-index
         depends_on:
             db:
                 condition: service_healthy
@@ -92,7 +108,7 @@ services:
             context: ./services/client
             dockerfile: ./dockerfile
         volumes:
-            - client-public:/var/www/html/public
+            - ./services/client/public:/var/www/html/public
         healthcheck:
             test: ["CMD-SHELL", "php-fpm -t"]
             interval: 5s
@@ -111,11 +127,11 @@ services:
             client:
                 condition: service_healthy
         volumes:
-            - client-public:/var/www/html/public:ro
+            - ./services/client/public:/var/www/html/public:ro
             - ./services/server/nginx.conf:/etc/nginx/nginx.conf:ro
         ports:
             - "3020:80"
 
 volumes:
     db-data:
-    client-public:
+    index-data:
