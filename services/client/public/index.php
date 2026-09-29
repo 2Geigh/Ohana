@@ -1,26 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
+<?php
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ohana | Surf The Indie Web</title>
-    <link rel="stylesheet" href="/assets/styles/index.css">
-</head>
+declare(strict_types=1);
 
-<body>
-    <h1>Ohana</h1>
-    <h2>Surf the <em><a href="/purpose">living</a></em> web.</h2>
+$URI = $_SERVER['REQUEST_URI'];
+$PATH = parse_url($URI, PHP_URL_PATH);
+$URI_QUERY = parse_url($URI, PHP_URL_QUERY);
 
-    <form action="search" method="get">
-        <input type="text" maxlength="255" required>
-        <input id="searchButton" type="submit" value="Go">
-    </form>
+switch ($PATH) {
+    case '/':
+        echo 'WELCOME TO THE HOMEPAGE';
+        break;
 
-    <footer>
-        Happy <?php echo strtolower(date('l', time())); ?>!
-    </footer>
-</body>
+    case '/search':
+        if ($URI_QUERY == null) {
+            echo '200 bad request: query missing';
+            break;
+        }
 
+        $search_query = explode("=", $URI_QUERY, 2);
+        if (sizeof($search_query) < 2) {
+            echo '200 bad request: malformed query';
+            break;
+        }
 
-</html>
+        $search_query_key = $search_query[0];
+        $search_query_value = $search_query[1];
+        if ($search_query_key != "q") {
+            echo '200 bad request: invalid query key';
+            break;
+        }
+        if ($search_query_value == "") {
+            echo '200 bad request: empty query value';
+            break;
+        }
+
+        echo "You searched {$search_query[1]}";
+        break;
+
+    default:
+        echo '404 page not found';
+        break;
+}
+
+?>

@@ -64,18 +64,6 @@ services:
         volumes:
             - index-data:/data/lucene-index
 
-    # index_gui:
-    #     build:
-    #         context: ./services/index_gui
-    #         dockerfile: ./dockerfile
-    #         args:
-    #             LUKE_VERSION: "10.5.1"
-    #     volumes:
-    #         - index-data:/source-index:ro
-    #         - /tmp/.X11-unix:/tmp/.X11-unix:rw
-    #     # environment:
-    #     # DISPLAY: ${DISPLAY}
-
     ranking_engine:
         networks:
             - infrastructure
