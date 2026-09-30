@@ -1,0 +1,21 @@
+# FROM node:26-alpine as base
+FROM ghcr.io/pnpm/pnpm:12.6.0 AS base
+
+WORKDIR /app
+
+COPY src ./src
+COPY static ./static
+COPY package.json ./package.json
+COPY pnpm-lock.yaml ./pnpm-lock.yaml
+COPY pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY .npmrc ./.npmrc
+COPY vite.config.ts ./vite.config.ts
+
+RUN pnpm install --prod --frozen-lockfile
+
+FROM node:26-alpine AS dist
+
+WORKDIR /app
+
+COPY --from=base /app/.svelte-kit
+
