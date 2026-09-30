@@ -1,0 +1,4 @@
+<form action="/search" method="get">
+    <input type="text" name="q" id="q" required />
+    <input type="submit" value="Go" />
+</form>

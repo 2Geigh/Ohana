@@ -9,7 +9,7 @@ $PATH = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $router = new Router;
 
 $router->Add("/", function () {
-    echo "welcome to / !";
+    include __DIR__ . "/pages/root/home.php";
 });
 
 $router->Add("/search", function () {
@@ -17,7 +17,7 @@ $router->Add("/search", function () {
         case 'GET':
             $isValidQueryParam = key_exists('q', $_GET);
             if (!$isValidQueryParam) {
-                echo "Welcome to the search page, without the clutter of the homepage.";
+                include __DIR__ . "/pages/search/home.php";
                 return;
             }
 
@@ -29,8 +29,7 @@ $router->Add("/search", function () {
                 return;
             }
 
-            echo "You searched for: `{$query}'.\n";
-            echo "Here are your search results...";
+            include __DIR__ . "/pages/search/results.php";
             return;
 
         default:
