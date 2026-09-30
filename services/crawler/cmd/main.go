@@ -83,6 +83,7 @@ var (
 		models.Url("https://webring.htmlhobbyist.com/list/").TrimTrailingSlash(),
 		models.Url("https://taylor.town/about").TrimTrailingSlash(),
 		models.Url("https://rip.so/").TrimTrailingSlash(),
+		models.Url("wiki.archiveteam.org").TrimTrailingSlash(),
 	}
 )
 
