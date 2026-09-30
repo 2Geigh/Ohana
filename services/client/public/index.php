@@ -2,40 +2,19 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . "/../src/Router.php";
+define("PROJECT_ROOT", dirname(__DIR__));
+
+require_once PROJECT_ROOT . "/src/Router.php";
+require_once PROJECT_ROOT . "/src/handlers/SearchHandler.php";
 
 $PATH = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 $router = new Router;
 
 $router->Add("/", function () {
-    include __DIR__ . "/pages/root/home.php";
+    include PROJECT_ROOT . "/public/pages/root/home.php";
 });
 
-$router->Add("/search", function () {
-    switch ($_SERVER['REQUEST_METHOD']) {
-        case 'GET':
-            $isValidQueryParam = key_exists('q', $_GET);
-            if (!$isValidQueryParam) {
-                include __DIR__ . "/pages/search/home.php";
-                return;
-            }
-
-            $query = $_GET['q'];
-
-            $isValidQuery = $query . trim($query) != '';
-            if (!$isValidQuery) {
-                header('Location: /search');
-                return;
-            }
-
-            include __DIR__ . "/pages/search/results.php";
-            return;
-
-        default:
-            http_response_code(405);
-            return;
-    }
-});
+$router->Add("/search", fn() => Search::Handle());
 
 $router->Dispatch($PATH);

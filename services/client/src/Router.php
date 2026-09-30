@@ -4,7 +4,7 @@ class Router
 {
     private $routes = [];
 
-    public function Add(string $path, Closure $handler): void
+    public function Add(string $path, callable $handler): void
     {
         $this->routes[$path] = $handler;
     }
