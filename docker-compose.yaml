@@ -64,24 +64,24 @@ services:
         volumes:
             - index-data:/data/lucene-index
 
-    ranking_engine:
+    ranking-engine:
         networks:
             - infrastructure
         build:
-            context: ./services/ranking_engine
+            context: ./services/ranking-engine
             dockerfile: ./dockerfile
-        container_name: ohana-ranking_engine
+        container_name: ohana-ranking-engine
         depends_on:
             db:
                 condition: service_healthy
 
-    query_engine:
+    query-engine:
         networks:
             - "userspace"
         build:
-            context: ./services/query_engine
+            context: ./services/query-engine
             dockerfile: ./dockerfile
-        container_name: ohana-query_engine
+        container_name: ohana-query-engine
         volumes:
             - index-data:/data/lucene-index
         depends_on:
