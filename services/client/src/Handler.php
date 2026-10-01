@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 abstract class Handler
 {
+    protected static $error = null;
+
     final public static function Handle(): void
     {
         $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? "");

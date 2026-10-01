@@ -5,7 +5,7 @@ declare(strict_types=1);
 define("PROJECT_ROOT", dirname(__DIR__));
 
 require_once PROJECT_ROOT . "/src/Router.php";
-require_once PROJECT_ROOT . "/src/handlers/SearchHandler.php";
+require_once PROJECT_ROOT . "/src/handlers/Search.php";
 
 $PATH = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
