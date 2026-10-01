@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once PROJECT_ROOT . "/src/Handler.php";
+
 final class Search extends Handler
 {
     protected static function get(): void
@@ -14,7 +16,7 @@ final class Search extends Handler
 
         $query = $_GET['q'];
 
-        $isValidQuery = $query . trim($query) != '';
+        $isValidQuery = trim($query) !== '';
         if (!$isValidQuery) {
             header('Location: /search');
             return;
