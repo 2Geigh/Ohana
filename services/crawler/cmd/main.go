@@ -89,6 +89,10 @@ var (
 		models.Url("https://delightful.club").TrimTrailingSlash(),
 
 		models.Url("https://www.unix.dog/users").TrimTrailingSlash(),
+		models.Url("https://bukmark.club/").TrimTrailingSlash(),
+		models.Url("https://250kb.club/").TrimTrailingSlash(),
+		models.Url("https://webring.dinhe.net/").TrimTrailingSlash(),
+		models.Url("https://ring.acab.dev/").TrimTrailingSlash(),
 	}
 )
 

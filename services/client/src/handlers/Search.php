@@ -7,7 +7,7 @@ require_once PROJECT_ROOT . "/src/Handler.php";
 final class Search extends Handler
 {
 
-    private static function search(string $sanitized_query): array
+    private static function search(string $sanitized_query): string
     {
         $url = "http://query-engine:5000?q={$sanitized_query}";
 
@@ -39,11 +39,23 @@ final class Search extends Handler
             return;
         }
 
-        $results = [];
+        $results = new searchResults($query);
         $err = null;
 
         try {
-            $results = static::search($query);
+            $response = static::search($query);
+
+            $decoded = json_decode($response, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new RuntimeException(
+                    'Invalid JSON: ' . json_last_error_msg()
+                );
+            }
+
+            $results->Results = $decoded['Results'];
+            $results->SearchDuration_ns = (int) $decoded['SearchDuration'];
+            $results->ProcessedQuery = $decoded['ProcessedQuery'];
+
         } catch (Exception $e) {
             $err = $e;
             // echo "An error occured Error: {$e}";
@@ -53,4 +65,24 @@ final class Search extends Handler
 
     }
 
+}
+
+final class searchResults
+{
+    public function __construct(
+        public string $InputtedQuery,
+        public string|null $ProcessedQuery = null,
+        public array $Results = [],
+        public int $SearchDuration_ns = 0
+    ) {
+        $this->InputtedQuery = $InputtedQuery;
+        $this->ProcessedQuery = $ProcessedQuery;
+        $this->Results = $Results;
+        $this->SearchDuration_ns = $SearchDuration_ns;
+    }
+
+    public function GetDuration_s(): float
+    {
+        return $this->SearchDuration_ns / (10 ** 9);
+    }
 }
