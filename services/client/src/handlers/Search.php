@@ -7,13 +7,15 @@ require_once PROJECT_ROOT . "/src/Handler.php";
 final class Search extends Handler
 {
 
-    private static function search(): array
+    private static function search(string $sanitized_query): array
     {
-        $ch = curl_init("http://db:5000");
+        $url = "http://db:5000?q={$sanitized_query}";
 
+        $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // return value instead of sending it to stdout
 
         $response = curl_exec($ch);
+
         if (curl_error($ch)) {
             throw new RuntimeException(curl_error($ch));
         }
@@ -29,7 +31,7 @@ final class Search extends Handler
             return;
         }
 
-        $query = $_GET['q'];
+        $query = filter_input(INPUT_GET, 'q', FILTER_SANITIZE_SPECIAL_CHARS);
 
         $isValidQuery = trim($query) !== '';
         if (!$isValidQuery) {
@@ -41,7 +43,7 @@ final class Search extends Handler
         $err = null;
 
         try {
-            $results = static::search();
+            $results = static::search($query);
         } catch (Exception $e) {
             $err = $e;
             // echo "An error occured Error: {$e}";
