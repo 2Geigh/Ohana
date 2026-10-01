@@ -93,6 +93,7 @@ var (
 		models.Url("https://250kb.club/").TrimTrailingSlash(),
 		models.Url("https://webring.dinhe.net/").TrimTrailingSlash(),
 		models.Url("https://ring.acab.dev/").TrimTrailingSlash(),
+		models.Url("https://leftwingbooks.net/").TrimTrailingSlash(),
 	}
 )
 

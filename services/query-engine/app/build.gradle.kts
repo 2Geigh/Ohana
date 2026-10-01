@@ -32,6 +32,15 @@ dependencies {
     implementation(libs.guava)
 
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
+
+    // Source: https://mvnrepository.com/artifact/org.apache.lucene/lucene-core
+    implementation("org.apache.lucene:lucene-core:10.5.1")
+
+    // Source: https://mvnrepository.com/artifact/org.apache.lucene/lucene-queryparser
+    implementation("org.apache.lucene:lucene-queryparser:10.5.1")
+
+    // Source: https://mvnrepository.com/artifact/org.postgresql/postgresql
+    implementation("org.postgresql:postgresql:42.7.13")
 }
 
 // Apply a specific Java toolchain to ease working on different environments.

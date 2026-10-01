@@ -1,17 +1,62 @@
 package com.nicholasgarcia.ohana.query_engine;
 
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.StoredFields;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import tools.jackson.databind.ObjectMapper;
-
 @RestController
 @SpringBootApplication
 public class App {
+
+    List<Document> searchIndex(String inField, String queryString) {
+        StandardAnalyzer analyzer = new StandardAnalyzer();
+
+        try {
+            Query query = new QueryParser(inField, analyzer).parse(queryString);
+
+            String indexPath = "/data/lucene-index";
+            Directory indexDirectory = FSDirectory.open(Paths.get(indexPath));
+
+            IndexReader indexReader = DirectoryReader.open(indexDirectory);
+            IndexSearcher indexSearcher = new IndexSearcher(indexReader);
+
+            TopDocs topDocs = indexSearcher.search(query, 10);
+            StoredFields storedFields = indexSearcher.storedFields();
+
+            List<Document> documents = new ArrayList<>();
+            for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+                int docId = scoreDoc.doc;
+                Document doc = storedFields.document(docId);
+                documents.add(doc);
+            }
+            return documents;
+
+        } catch (IOException e) {
+        } catch (ParseException e) {
+        }
+
+        return null;
+    }
 
     @RequestMapping("/")
     public searchResults home() {
@@ -19,8 +64,18 @@ public class App {
 
         System.out.println("We recieved a GET request! Sending results now...");
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        searchResults search_results = new searchResults();
+        List<Document> resultDocs = searchIndex("body", "gentoo linux");
+        for (Document doc : resultDocs) {
+            String sql_id = doc.get("sql_page_id");
+            String sql_site_id = doc.get("sql_site_id");
+            String language = doc.get("language");
+
+            
+
+            String title;
+            String description;
+        }
+        System.out.println(resultDocs);
 
         searchResults response = new searchResults();
         response.InputtedQuery = "example query";
