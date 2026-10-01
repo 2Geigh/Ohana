@@ -1,0 +1,19 @@
+FROM gradle:9.8.0-jdk25-alpine AS build
+
+WORKDIR /repo
+
+COPY . .
+
+# RUN gradle check
+
+RUN gradle bootJar
+
+FROM amazoncorretto:25-alpine AS dist
+
+WORKDIR /app
+
+COPY --from=build /repo/app/build/libs/app-0.0.1-SNAPSHOT.jar ./app.jar
+
+EXPOSE 5000
+
+CMD ["java", "-jar", "/app/app.jar", "--server.port=5000"]

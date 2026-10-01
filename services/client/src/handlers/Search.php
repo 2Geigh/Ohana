@@ -9,7 +9,7 @@ final class Search extends Handler
 
     private static function search(string $sanitized_query): array
     {
-        $url = "http://db:5000?q={$sanitized_query}";
+        $url = "http://query-engine:5000?q={$sanitized_query}";
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // return value instead of sending it to stdout
@@ -20,7 +20,7 @@ final class Search extends Handler
             throw new RuntimeException(curl_error($ch));
         }
 
-        return [];
+        return $response;
     }
 
     protected static function get(): void

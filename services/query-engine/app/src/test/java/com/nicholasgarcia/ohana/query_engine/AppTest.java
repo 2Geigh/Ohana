@@ -3,6 +3,8 @@
  */
 package com.nicholasgarcia.ohana.query_engine;
 
+-engine;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import org.junit.jupiter.api.Test;
 
