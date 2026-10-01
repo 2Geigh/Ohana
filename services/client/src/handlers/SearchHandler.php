@@ -2,24 +2,9 @@
 
 declare(strict_types=1);
 
-class Search
+final class Search extends Handler
 {
-
-    public static function Handle(): void
-    {
-        switch ($_SERVER['REQUEST_METHOD']) {
-            case 'GET':
-                self::get();
-                return;
-
-            default:
-                http_response_code(405);
-                header("Allow: GET");
-                return;
-        }
-    }
-
-    private static function get(): void
+    protected static function get(): void
     {
         $isValidQueryParam = key_exists('q', $_GET);
         if (!$isValidQueryParam) {
