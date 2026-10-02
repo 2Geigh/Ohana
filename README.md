@@ -23,7 +23,7 @@ Implemented with [Postgresql](https://postgresql.org).
 
 ### Indexer
 
-Implemented in [Java](https://java.com).
+Implemented in [Java]("https://java.com") [25](https://openjdk.org/projects/jdk/25/) via [Maven](https://maven.apache.org/).
 
 ### Ranking Engine
 
@@ -31,7 +31,7 @@ Implemented in [Python](https://python.org).
 
 ### Query Engine
 
-Implemented in [C#]([https://rust-lang.dev](https://learn.microsoft.com/en-us/dotnet/csharp/)).
+Implemented in [Java]("https://java.com") [25](https://openjdk.org/projects/jdk/25/) using [Spring](https://spring.io/) via [Gradle](https://gradle.org/).
 
 ### Client
 
