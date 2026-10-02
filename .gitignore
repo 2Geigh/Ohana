@@ -16,3 +16,4 @@
 /services/query_engine/obj/*
 /services/query_engine/bin/Release/net10.0
 /services/query_engine/.idea/.idea.query_engine.dir/.idea
+/.vscode
