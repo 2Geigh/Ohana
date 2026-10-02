@@ -27,7 +27,7 @@ COPY gradle.properties .
 COPY gradle/ gradle/
 COPY app/ app/
 
-RUN gradle :app:bootJar --no-daemon --stacktrace
+RUN gradle :app:bootJar --no-daemon
 
 FROM amazoncorretto:25-alpine AS dist
 

@@ -98,11 +98,15 @@ public class App {
             List<Document> resultDocs = searchIndex("body", response.InputtedQuery);
             for (Document doc : resultDocs) {
 
+                boolean docHasSqlPageId = doc.get("sql_page_id") != null;
+
+                if (!docHasSqlPageId) {
+                    continue;
+                }
+
                 int sql_id = Integer.parseInt(doc.get("sql_page_id"));
-                int sql_site_id = Integer.parseInt(doc.get("sql_site_id"));
 
                 stmt.setObject(1, sql_id);
-                stmt.executeQuery();
 
                 ResultSet result = stmt.executeQuery();
 
