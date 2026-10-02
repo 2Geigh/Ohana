@@ -102,18 +102,6 @@ func init() {
 	if err != nil {
 		log.Fatalf("connect to database failed: %v", err)
 	}
-
-	err = database.InitializeDomainBlacklist(database.DB)
-	if err != nil {
-		log.Fatalf("initialize domain blacklist failed: %v", err)
-	}
-
-	for _, seed_url := range seed_urls {
-		err := database.EnqueueLinks([]models.Url{seed_url}, database.DB, &database.DatabaseMu)
-		if err != nil {
-			log.Printf("enqueue seed URLs failed: %v", err)
-		}
-	}
 }
 
 func main() {

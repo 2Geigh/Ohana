@@ -28,13 +28,26 @@ services:
             - db-data:/var/lib/ohana
         healthcheck:
             test: ["CMD", "pg_isready"]
-            interval: 10s
+            interval: 1s
             timeout: 5s
-            retries: 5
+            retries: 100
 
     # backup:
     #     image: postgres:18.4-alpine
     #     container_name: ohana-db-backup
+
+    db-init:
+        networks:
+            - infrastructure
+        build:
+            context: ./services/db-init
+            dockerfile: ./build/dockerfile
+        container_name: ohana-db_initializer
+        depends_on:
+            db:
+                condition: service_healthy
+        env_file:
+            - ./.env
 
     crawler:
         networks:
@@ -44,8 +57,8 @@ services:
             dockerfile: ./build/dockerfile
         container_name: ohana-crawler
         depends_on:
-            db:
-                condition: service_healthy
+            db-init:
+                condition: service_completed_successfully
         env_file:
             - ./.env
 
@@ -57,8 +70,8 @@ services:
             dockerfile: ./dockerfile
         container_name: ohana-indexer
         depends_on:
-            db:
-                condition: service_healthy
+            db-init:
+                condition: service_completed_successfully
         env_file:
             - ./.env
         volumes:
@@ -72,8 +85,8 @@ services:
             dockerfile: ./dockerfile
         container_name: ohana-ranking-engine
         depends_on:
-            db:
-                condition: service_healthy
+            db-init:
+                condition: service_completed_successfully
 
     query-engine:
         networks:
@@ -87,8 +100,8 @@ services:
         env_file:
             - ./.env
         depends_on:
-            db:
-                condition: service_healthy
+            db-init:
+                condition: service_completed_successfully
 
     client:
         container_name: ohana-client
@@ -104,9 +117,6 @@ services:
             interval: 5s
             timeout: 3s
             retries: 10
-        # depends_on:
-        #     db:
-        #         condition: service_healthy
 
     server:
         container_name: ohana-server
