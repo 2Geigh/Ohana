@@ -1,19 +1,39 @@
+FROM gradle:9.8.0-jdk25-alpine AS dependencies
+
+RUN mkdir -p /home/gradle/cache_home
+
+ENV GRADLE_USER_HOME /home/gradle/cache_home
+
+WORKDIR /workspace
+
+COPY gradle/libs.versions.toml gradle/libs.versions.toml
+COPY gradle.properties .
+COPY app/build.gradle.kts app/build.gradle.kts
+COPY settings.gradle.kts .
+
+RUN gradle clean
+# RUN gradle build -i --stacktrace
+RUN gradle build 
+
 FROM gradle:9.8.0-jdk25-alpine AS build
 
-WORKDIR /repo
+ENV GRADLE_USER_HOME=/home/gradle/.gradle
+COPY --from=dependencies /home/gradle/cache_home /home/gradle/.gradle
 
-COPY . .
+WORKDIR /workspace
 
-# RUN gradle check
+COPY settings.gradle.kts .
+COPY gradle.properties .
+COPY gradle/ gradle/
+COPY app/ app/
 
-RUN gradle bootJar
+RUN gradle :app:bootJar --no-daemon --stacktrace
 
 FROM amazoncorretto:25-alpine AS dist
 
 WORKDIR /app
 
-COPY --from=build /repo/app/build/libs/app-0.0.1-SNAPSHOT.jar ./app.jar
-
+COPY --from=build /workspace/app/build/libs/app-0.0.1-SNAPSHOT.jar ./app.jar
 EXPOSE 5000
 
 CMD ["java", "-jar", "/app/app.jar", "--server.port=5000"]
