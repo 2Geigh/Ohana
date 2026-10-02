@@ -37,10 +37,10 @@ import org.springframework.web.bind.annotation.RestController;
 @SpringBootApplication
 public class App {
 
-    final private static void logIteration(String query, Duration timespan) {
+    static void logIteration(String query, int timespan_ns) {
         System.out.println(
                 LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
-                + " Searched \"" + query + "\" in " + timespan.getSeconds() + "s"
+                + " Searched \"" + query + "\" in " + (timespan_ns / (1000)) + "ms"
         );
     }
 
@@ -77,6 +77,7 @@ public class App {
 
     @RequestMapping("/")
     public searchResults home(@RequestParam String q) {
+        long startTime = System.nanoTime();
         List<searchResult> results = new ArrayList<>();
 
         final String DB_HOST = System.getenv("DB_HOST");
@@ -114,14 +115,15 @@ public class App {
                                 result.getString("title"),
                                 result.getString("description"),
                                 result.getString("link"),
-                                doc.get("language")
-                        ));
+                                doc.get("language")));
             }
+
             response.ProcessedQuery = response.InputtedQuery;
             response.Results = results;
-            response.SearchDuration = Duration.ofNanos(12345);
 
-            logIteration(response.ProcessedQuery, response.SearchDuration);
+            long endTime = System.nanoTime();
+            response.SearchDuration_ns = Duration.ofNanos(endTime - startTime).getNano();
+            logIteration(response.ProcessedQuery, response.SearchDuration_ns);
             return response;
 
         } catch (SQLException e) {
@@ -142,7 +144,7 @@ class searchResults {
     public String InputtedQuery;
     public String ProcessedQuery = "";
     public List<searchResult> Results = new ArrayList<>();
-    public Duration SearchDuration;
+    public int SearchDuration_ns;
 
     public searchResults(String input_query) {
         this.InputtedQuery = input_query;
