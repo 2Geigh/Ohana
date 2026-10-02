@@ -8,6 +8,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,12 +29,20 @@ import org.apache.lucene.store.FSDirectory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 
 @SpringBootApplication
 public class App {
+
+    final private static void logIteration(String query, Duration timespan) {
+        System.out.println(
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
+                + " Searched \"" + query + "\" in " + timespan.getSeconds() + "s"
+        );
+    }
 
     List<Document> searchIndex(String inField, String queryString) {
         StandardAnalyzer analyzer = new StandardAnalyzer();
@@ -66,10 +76,8 @@ public class App {
     }
 
     @RequestMapping("/")
-    public searchResults home() {
+    public searchResults home(@RequestParam String q) {
         List<searchResult> results = new ArrayList<>();
-
-        System.out.println("We recieved a GET request! Sending results now...");
 
         final String DB_HOST = System.getenv("DB_HOST");
         final String DB_PASSWORD = System.getenv("DB_PASSWORD");
@@ -78,7 +86,7 @@ public class App {
         final String DB_NAME = System.getenv("DB_NAME");
         final String JDBC_URL = "jdbc:postgresql://" + DB_HOST + ":" + DB_CONTAINER_PORT + "/" + DB_NAME;
 
-        String inputQuery = "toronto";
+        String inputQuery = q;
         searchResults response = new searchResults(inputQuery);
 
         try (
@@ -113,6 +121,7 @@ public class App {
             response.Results = results;
             response.SearchDuration = Duration.ofNanos(12345);
 
+            logIteration(response.ProcessedQuery, response.SearchDuration);
             return response;
 
         } catch (SQLException e) {
