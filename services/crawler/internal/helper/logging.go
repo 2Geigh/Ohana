@@ -6,7 +6,9 @@ import (
 	"golang.org/x/net/html"
 )
 
-func PrintHtmlNodeInfo(node *html.Node) {
+func PrintHtmlNodeInfo(
+	node *html.Node,
+) {
 	fmt.Println()
 	fmt.Println("node.Attr", node.Attr)
 	fmt.Println("node.Data", node.Data)

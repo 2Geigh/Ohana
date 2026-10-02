@@ -35,7 +35,13 @@ var (
 	embedData embed.FS
 )
 
-func DequeueLinks(db *sql.DB, mu *sync.Mutex) ([]models.Url, error) {
+func DequeueLinks(
+	db *sql.DB,
+	mu *sync.Mutex,
+) (
+	[]models.Url,
+	error,
+) {
 	var (
 		queueRows []models.Url
 	)
@@ -119,7 +125,11 @@ func DequeueLinks(db *sql.DB, mu *sync.Mutex) ([]models.Url, error) {
 	return queueRows, nil
 }
 
-func EnqueueLinks(urls []models.Url, db *sql.DB, mu *sync.Mutex) error {
+func EnqueueLinks(
+	urls []models.Url,
+	db *sql.DB,
+	mu *sync.Mutex,
+) error {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -153,7 +163,7 @@ func EnqueueLinks(urls []models.Url, db *sql.DB, mu *sync.Mutex) error {
 			return fmt.Errorf("prepare statement failed: %w", err)
 		}
 
-		_, err = stmt.Exec(url, url.GetDomain().GetFQDN())
+		_, err = stmt.Exec(url.Sanitize(), url.GetDomain().GetFQDN())
 		if err != nil {
 			return fmt.Errorf("execute statement failed: %w", err)
 		}
@@ -172,7 +182,9 @@ func EnqueueLinks(urls []models.Url, db *sql.DB, mu *sync.Mutex) error {
 	return nil
 }
 
-func InitializeDomainBlacklist(db *sql.DB) error {
+func InitializeDomainBlacklist(
+	db *sql.DB,
+) error {
 	var (
 		topThousandDomains = struct {
 			asBytes  []byte
@@ -275,7 +287,9 @@ func ReportDatabaseHealth() {
 	// }
 }
 
-func migrate(db *sql.DB) error {
+func migrate(
+	db *sql.DB,
+) error {
 
 	goose.SetBaseFS(embedMigrations)
 

@@ -60,7 +60,13 @@ func (url Url) GetDomain() Domain {
 	return Domain(domain)
 }
 
-func (url Url) IsTooRecentlyCrawled(db *sql.DB, oldness_threshold time.Duration) (bool, error) {
+func (url Url) IsTooRecentlyCrawled(
+	db *sql.DB,
+	oldness_threshold time.Duration,
+) (
+	bool,
+	error,
+) {
 	var (
 		lastCrawled          time.Time
 		isTooRecentlyCrawled bool = false

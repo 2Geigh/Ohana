@@ -30,7 +30,10 @@ func (q *LocalQueue) Dequeue() Url {
 	return toReturn
 }
 
-func (q *LocalQueue) Enqueue(urls []Url, db *sql.DB) error {
+func (q *LocalQueue) Enqueue(
+	urls []Url,
+	db *sql.DB,
+) error {
 	q.Mu.Lock()
 	defer q.Mu.Unlock()
 

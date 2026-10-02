@@ -96,7 +96,8 @@ func main() {
 	defer database.DB.Close()
 
 	wg.Go(func() {
-		err = database.InitializeDomainBlacklist(database.DB)
+		err = database.
+			InitializeDomainBlacklist(database.DB)
 		if err != nil {
 			log.Fatalf("initialize domain blacklist failed: %v", err)
 		}
@@ -105,7 +106,11 @@ func main() {
 
 	wg.Go(func() {
 		for _, seed_url := range seed_urls {
-			err := database.EnqueueLinks([]models.Url{seed_url}, database.DB, &database.DatabaseMu)
+			err := database.EnqueueLinks(
+				[]models.Url{seed_url},
+				database.DB,
+				&database.DatabaseMu,
+			)
 			if err != nil {
 				log.Printf("enqueue seed URLs failed: %v", err)
 			}

@@ -34,7 +34,14 @@ func (d Domain) GetFQDN() Domain {
 	return Domain(parser.GetFQDN(string(domainWithoutRoutes)))
 }
 
-func (d Domain) HasBeenRequestedTooRecently(politeness_interval time.Duration, databaseMu *sync.Mutex, db *sql.DB) (bool, error) {
+func (d Domain) HasBeenRequestedTooRecently(
+	politeness_interval time.Duration,
+	databaseMu *sync.Mutex,
+	db *sql.DB,
+) (
+	bool,
+	error,
+) {
 	var (
 		fqdn        = d.GetFQDN()
 		lastCrawled time.Time
@@ -72,7 +79,12 @@ func (d Domain) HasBeenRequestedTooRecently(politeness_interval time.Duration, d
 	return hasBeenCrawledTooRecently, nil
 }
 
-func (d Domain) IsBlacklisted(db *sql.DB) (bool, error) {
+func (d Domain) IsBlacklisted(
+	db *sql.DB,
+) (
+	bool,
+	error,
+) {
 	var (
 		fqdn = d.GetFQDN()
 

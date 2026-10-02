@@ -1,6 +1,7 @@
 package crawling
 
 import (
+	"database/sql"
 	"fmt"
 	"io"
 	"log"
@@ -9,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -19,11 +21,17 @@ import (
 )
 
 const (
+	// How long the crawler waits between requests to the same domain
 	CRAWLER_POLITENESS_INTERVAL time.Duration = 12 * time.Second
-	CRAWLER_OLDNESS_THRESHOLD   time.Duration = 86400 * time.Second // 7 days
+
+	// How long the crawler keeps ignoring a re-encountered page after crawling it
+	CRAWLER_OLDNESS_THRESHOLD time.Duration = 24 * time.Hour //
 )
 
-func Crawl(wg *sync.WaitGroup) {
+func Crawl(
+	wg *sync.WaitGroup,
+	iterator *atomic.Int64,
+) {
 	var (
 		page models.Webpage
 
@@ -185,15 +193,16 @@ func Crawl(wg *sync.WaitGroup) {
 			continue
 		}
 
-		// log.Println()
-		// log.Println(page.Fqdn)
-		log.Printf("[%s]", currentUrl)
+		log.Printf("[%s] (%d)", currentUrl, iterator.Load())
 
 		err = page.EnqueueToIndexer(database.DB, &database.DatabaseMu)
 		if err != nil {
 			log.Printf("[%s] enqueue to indexer failed: %v", currentUrl, err)
 			continue
 		}
+
+		_ = iterator.Add(1)
+
 		// log.Println("crawler:       ", crawler_id)
 		// log.Println("iter:          ", *iterator)
 		// log.Println("url:           ", currentUrl)
@@ -206,7 +215,54 @@ func Crawl(wg *sync.WaitGroup) {
 	}
 }
 
-func findHyperlinks(root_node *html.Node, root_url models.Url) []models.Url {
+func CleanCrawlerQueue(
+	db *sql.DB,
+	mu *sync.Mutex,
+	iteration_counter *atomic.Int64,
+) error {
+	if db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	if mu == nil {
+		return fmt.Errorf("mutex is nil")
+	}
+
+	for true {
+		if iteration_counter.Load() < 100 {
+			time.Sleep(6 * time.Second)
+			continue
+		}
+
+		mu.Lock()
+		result, err := db.Exec(
+			`DELETE FROM crawler_queue cq
+			USING pages p
+			WHERE cq.hyperlink = p.link
+				AND p.date_last_crawled > CURRENT_TIMESTAMP - $1::interval;`,
+			fmt.Sprintf("%d seconds", int(CRAWLER_OLDNESS_THRESHOLD/time.Second)),
+		)
+		mu.Unlock()
+		if err != nil {
+			return fmt.Errorf("execute DELETE FROM crawler_queue failed: %w", err)
+		}
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("get rows affected failed: %w", err)
+		}
+
+		log.Printf("Crawler queue purged successfully, eliminating %d links.", rowsAffected)
+
+		_ = iteration_counter.Swap(0)
+	}
+
+	return fmt.Errorf("Crawler queue cleaner process quit unexpectedly")
+}
+
+func findHyperlinks(
+	root_node *html.Node,
+	root_url models.Url,
+) []models.Url {
 	var (
 		hyperlinks []models.Url
 	)
@@ -280,14 +336,21 @@ func findHyperlinks(root_node *html.Node, root_url models.Url) []models.Url {
 	return hyperlinks
 }
 
-func isPageOnFediverse(p models.Webpage) (bool, error) {
+func isPageOnFediverse(
+	p models.Webpage,
+) (
+	bool,
+	error,
+) {
 	// TODO: IMPLEMENT THIS FUNCTION USING DATA FROM:
 	// https://nodes.fediverse.party/
 
 	return false, nil
 }
 
-func parsePageDescription(root_node *html.Node) string {
+func parsePageDescription(
+	root_node *html.Node,
+) string {
 	var (
 		pageDescription string
 	)
@@ -332,7 +395,9 @@ func parsePageDescription(root_node *html.Node) string {
 	return pageDescription
 }
 
-func parsePageTitle(root_node *html.Node) string {
+func parsePageTitle(
+	root_node *html.Node,
+) string {
 	var (
 		pageTitle string
 	)

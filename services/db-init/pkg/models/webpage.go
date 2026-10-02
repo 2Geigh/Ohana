@@ -28,7 +28,9 @@ type (
 	}
 )
 
-func (page *Webpage) Save(db *sql.DB) error {
+func (page *Webpage) Save(
+	db *sql.DB,
+) error {
 
 	if len(page.FullDomain) == 0 {
 		return fmt.Errorf("domain empty")
@@ -169,7 +171,9 @@ func (page *Webpage) Save(db *sql.DB) error {
 	return nil
 }
 
-func (p *Webpage) Scan(value any) error {
+func (p *Webpage) Scan(
+	value any,
+) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return fmt.Errorf("type assertion to []byte failed")
@@ -178,7 +182,10 @@ func (p *Webpage) Scan(value any) error {
 	return json.Unmarshal(b, &p)
 }
 
-func (p *Webpage) EnqueueToIndexer(db *sql.DB, mu *sync.Mutex) error {
+func (p *Webpage) EnqueueToIndexer(
+	db *sql.DB,
+	mu *sync.Mutex,
+) error {
 	var (
 		pageId int64
 		siteId int64
@@ -220,6 +227,9 @@ func (p *Webpage) EnqueueToIndexer(db *sql.DB, mu *sync.Mutex) error {
 	return nil
 }
 
-func (p *Webpage) Value() (driver.Value, error) {
+func (p *Webpage) Value() (
+	driver.Value,
+	error,
+) {
 	return json.Marshal(p)
 }
