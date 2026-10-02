@@ -100,9 +100,3 @@ func (d Domain) StripProtocol() Domain {
 
 	return Domain(domainWithoutProtocol)
 }
-
-func (d Domain) TrimWWW() Domain {
-	return Domain(
-		strings.TrimPrefix(string(d.StripProtocol()), "www."),
-	)
-}
