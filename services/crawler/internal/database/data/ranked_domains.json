@@ -6549,5 +6549,6 @@
 	{ "domain": "imgur.com" },
 	{ "domain": "coindesk.com" },
 	{ "domain": "forecast.io" },
-	{ "domain": "twilio.com" }
+	{ "domain": "twilio.com" },
+	{ "domain": "flic.kr" }
 ]

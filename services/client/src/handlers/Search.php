@@ -52,7 +52,11 @@ final class Search extends Handler
                 );
             }
 
-            $results->Results = $decoded['Results'];
+            foreach ($decoded['Results'] as $result) {
+                $toAdd = new searchResult($result['Title'], $result["Description"], $result["Url"], $result["Language"]);
+                array_push($results->Results, $toAdd);
+            }
+            // $results->Results = $decoded['Results'];
             $results->SearchDuration_ns = (int) $decoded['SearchDuration'];
             $results->ProcessedQuery = $decoded['ProcessedQuery'];
 
@@ -84,5 +88,20 @@ final class searchResults
     public function GetDuration_s(): float
     {
         return $this->SearchDuration_ns / (10 ** 9);
+    }
+}
+
+final class searchResult
+{
+    public function __construct(
+        public string $Title,
+        public string $Description,
+        public string $Url,
+        public string $Language
+    ) {
+        $this->Title = $Title;
+        $this->Description = $Description;
+        $this->Url = $Url;
+        $this->Language = $Language;
     }
 }

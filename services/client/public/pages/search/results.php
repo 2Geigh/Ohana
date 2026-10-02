@@ -10,9 +10,15 @@
         </i>
         in <?= $results->GetDuration_s() ?> seconds:
     </h1>
-    <?php foreach ($results->Results as $key => $value): ?>
+    <?php foreach ($results->Results as $result): ?>
         <li>
-            <?= htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') ?>
+            <a href="<?= htmlspecialchars((string) $result->Url, ENT_QUOTES, 'UTF-8') ?>">
+                [<?= htmlspecialchars((string) $result->Language, ENT_QUOTES, 'UTF-8') ?>]
+                <?= htmlspecialchars((string) $result->Title, ENT_QUOTES, 'UTF-8') ?>
+            </a>
+            <p>
+                <?= htmlspecialchars((string) $result->Description, ENT_QUOTES, 'UTF-8') ?>
+            </p>
         </li>
     <?php endforeach; ?>
 <?php endif ?>

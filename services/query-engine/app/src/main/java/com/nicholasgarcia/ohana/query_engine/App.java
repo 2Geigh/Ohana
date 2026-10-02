@@ -67,7 +67,7 @@ public class App {
 
     @RequestMapping("/")
     public searchResults home() {
-        List<String> results = new ArrayList<>();
+        List<searchResult> results = new ArrayList<>();
 
         System.out.println("We recieved a GET request! Sending results now...");
 
@@ -78,19 +78,19 @@ public class App {
         final String DB_NAME = System.getenv("DB_NAME");
         final String JDBC_URL = "jdbc:postgresql://" + DB_HOST + ":" + DB_CONTAINER_PORT + "/" + DB_NAME;
 
-        searchResults response = new searchResults();
+        String inputQuery = "toronto";
+        searchResults response = new searchResults(inputQuery);
 
         try (
                 Connection connection = DriverManager.getConnection(JDBC_URL, DB_USERNAME, DB_PASSWORD); PreparedStatement stmt = connection
                 .prepareStatement(
                         "SELECT link, title, description FROM pages WHERE id = ? LIMIT 1;");) {
 
-            List<Document> resultDocs = searchIndex("body", "gentoo linux");
+            List<Document> resultDocs = searchIndex("body", response.InputtedQuery);
             for (Document doc : resultDocs) {
 
                 int sql_id = Integer.parseInt(doc.get("sql_page_id"));
                 int sql_site_id = Integer.parseInt(doc.get("sql_site_id"));
-                String language = doc.get("language");
 
                 stmt.setObject(1, sql_id);
                 stmt.executeQuery();
@@ -101,21 +101,18 @@ public class App {
                     continue;
                 }
 
-                String title = result.getString("title");
-                String description = result.getString("description");
-                String url = result.getString("link");
-
-                results.add(url);
+                results.add(
+                        new searchResult(
+                                result.getString("title"),
+                                result.getString("description"),
+                                result.getString("link"),
+                                doc.get("language")
+                        ));
             }
-            System.out.println(resultDocs);
-            System.out.println(results);
-
-            response.InputtedQuery = "example query";
-            response.ProcessedQuery = "processed query";
+            response.ProcessedQuery = response.InputtedQuery;
             response.Results = results;
             response.SearchDuration = Duration.ofNanos(12345);
 
-            System.out.println(response);
             return response;
 
         } catch (SQLException e) {
@@ -131,21 +128,30 @@ public class App {
 
 }
 
-// class serializer extends ObjectValueSerializer<searchResults> {
-//     @Override
-//     public void serializeObject(searchResults search_results, JsonGenerator jgen, SerializationContext context) {
-//         jgen.writeStartObject();
-//         jgen.writeStringProperty("inputted_query", search_results.InputtedQuery);
-//         jgen.writeStringProperty("processed_query", search_results.ProcessedQuery);
-//         jgen.writeArray(search_results.Results, 0, search_results.Results.length - 1);
-//         jgen.writeNumberProperty("search_duration_ns", search_results.SearchDuration.getNano());
-//         jgen.writeEndObject();
-//     }
-// }
 class searchResults {
 
-    public String InputtedQuery = "";
+    public String InputtedQuery;
     public String ProcessedQuery = "";
-    public List<String> Results = new ArrayList<>();
+    public List<searchResult> Results = new ArrayList<>();
     public Duration SearchDuration;
+
+    public searchResults(String input_query) {
+        this.InputtedQuery = input_query;
+        this.ProcessedQuery = input_query;
+    }
+}
+
+class searchResult {
+
+    public String Title;
+    public String Description;
+    public String Url;
+    public String Language;
+
+    public searchResult(String title, String desc, String url, String language) {
+        this.Title = title;
+        this.Description = desc;
+        this.Url = url;
+        this.Language = language;
+    }
 }
