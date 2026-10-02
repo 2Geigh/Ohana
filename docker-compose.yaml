@@ -42,7 +42,7 @@ services:
         build:
             context: ./services
             dockerfile: ./db-init/build/dockerfile
-        container_name: ohana-db_initializer
+        container_name: ohana-db-initializer
         depends_on:
             db:
                 condition: service_healthy

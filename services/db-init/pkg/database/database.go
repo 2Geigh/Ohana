@@ -9,7 +9,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/2Geigh/Ohana/db-init/pkg/models"
+	"github.com/2Geigh/Ohana/db-init/internal/models"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 )
@@ -240,8 +240,6 @@ func InitializeDB() error {
 
 		err error
 	)
-
-	fmt.Println(dsn)
 
 	if username == "" {
 		log.Println("Warning: DB_USERNAME is empty. Connection might fail.")
