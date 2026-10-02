@@ -9,7 +9,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/2Geigh/Ohana/db-init/internal/models"
+	"github.com/2Geigh/Ohana/db-init/pkg/models"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 )
