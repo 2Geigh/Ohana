@@ -57,17 +57,33 @@ final class Search extends Handler
                 );
             }
 
-            foreach ($decoded['Results'] as $result) {
-                $toAdd = new searchResult($result['Title'], $result["Description"], $result["Url"], $result["Language"]);
-                array_push($results->Results, $toAdd);
+            if (key_exists('Results', $decoded)) {
+                foreach ($decoded['Results'] as $result) {
+                    $toAdd = new searchResult(
+                        $result['Title'],
+                        $result["Description"],
+                        $result["Url"],
+                        $result["Language"]
+                    );
+                    array_push($results->Results, $toAdd);
+                }
+            } else {
+                $results->Results = [];
             }
-            // $results->Results = $decoded['Results'];
-            $results->SearchDuration_ns = (int) $decoded['SearchDuration_ns'];
-            $results->ProcessedQuery = $decoded['ProcessedQuery'];
 
+            if (key_exists('SearchDuration_ns', $decoded)) {
+                $results->SearchDuration_ns = (int) $decoded['SearchDuration_ns'];
+            } else {
+                $results->SearchDuration_ns = null;
+            }
+
+            if (key_exists('ProcessedQuery', $decoded)) {
+                $results->ProcessedQuery = $decoded['ProcessedQuery'];
+            } else {
+                $results->ProcessedQuery = $results->InputtedQuery;
+            }
         } catch (Exception $e) {
             $err = $e;
-            // echo "An error occured Error: {$e}";
         } finally {
             include PROJECT_ROOT . "/public/pages/search/results.php";
         }
@@ -80,9 +96,9 @@ final class searchResults
 {
     public function __construct(
         public string $InputtedQuery,
-        public string|null $ProcessedQuery = null,
+        public string $ProcessedQuery = '',
         public array $Results = [],
-        public int $SearchDuration_ns = 0
+        public int|null $SearchDuration_ns = 0
     ) {
         $this->InputtedQuery = $InputtedQuery;
         $this->ProcessedQuery = $ProcessedQuery;
