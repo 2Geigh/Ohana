@@ -7,6 +7,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -37,10 +38,18 @@ import org.springframework.web.bind.annotation.RestController;
 @SpringBootApplication
 public class App {
 
-    static void logIteration(String query, int timespan_ns) {
-        System.out.println(
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss"))
-                + " Searched \"" + query + "\" in " + (timespan_ns / (1000)) + "ms"
+    static void logIteration(searchResults results) {
+        DecimalFormat df = new DecimalFormat("#.##");
+
+        System.out.printf(
+                "%s Search \"%s\" returned %d results in %sms%n",
+                LocalDateTime.now()
+                        .format(DateTimeFormatter.ofPattern(
+                                "yyyy/MM/dd HH:mm:ss")
+                        ),
+                results.InputtedQuery,
+                results.Results.size(),
+                df.format(results.SearchDuration_ns / Math.pow(10, 9))
         );
     }
 
@@ -127,7 +136,7 @@ public class App {
 
             long endTime = System.nanoTime();
             response.SearchDuration_ns = Duration.ofNanos(endTime - startTime).getNano();
-            logIteration(response.ProcessedQuery, response.SearchDuration_ns);
+            logIteration(response);
             return response;
 
         } catch (SQLException e) {
