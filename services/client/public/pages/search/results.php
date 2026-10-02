@@ -1,3 +1,7 @@
+<?php
+require_once PROJECT_ROOT . '/src/util/Language.php';
+?>
+
 <?php if ($err !== null): ?>
     <h1>Hmm... looks like we've encountered an
         error on our part.</h1>
@@ -13,7 +17,10 @@
     <?php foreach ($results->Results as $result): ?>
         <li>
             <a href="<?= htmlspecialchars((string) $result->Url, ENT_QUOTES, 'UTF-8') ?>">
-                [<?= htmlspecialchars((string) $result->Language, ENT_QUOTES, 'UTF-8') ?>]
+                [<?php
+                $languageCode = htmlspecialchars((string) $result->Language, ENT_QUOTES, 'UTF-8');
+                echo $LanguageEmojis[$languageCode];
+                ?>]
                 <?= htmlspecialchars((string) $result->Title, ENT_QUOTES, 'UTF-8') ?>
             </a>
             <p>
