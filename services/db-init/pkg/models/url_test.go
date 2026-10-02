@@ -3,7 +3,7 @@ package models_test
 import (
 	"testing"
 
-	"github.com/2Geigh/Ohana/db-init/internal/models"
+	"github.com/2Geigh/Ohana/db-init/pkg/models"
 )
 
 func TestUrl_TrimWWW(t *testing.T) {

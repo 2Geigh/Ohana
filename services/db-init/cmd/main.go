@@ -4,8 +4,8 @@ import (
 	"log"
 	"sync"
 
-	"github.com/2Geigh/Ohana/db-init/internal/database"
-	"github.com/2Geigh/Ohana/db-init/internal/models"
+	"github.com/2Geigh/Ohana/db-init/pkg/database"
+	"github.com/2Geigh/Ohana/db-init/pkg/models"
 )
 
 var (

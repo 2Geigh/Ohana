@@ -40,8 +40,8 @@ services:
         networks:
             - infrastructure
         build:
-            context: ./services/db-init
-            dockerfile: ./build/dockerfile
+            context: ./services
+            dockerfile: ./db-init/build/dockerfile
         container_name: ohana-db_initializer
         depends_on:
             db:
@@ -53,8 +53,8 @@ services:
         networks:
             - infrastructure
         build:
-            context: ./services/crawler
-            dockerfile: ./build/dockerfile
+            context: ./services
+            dockerfile: ./crawler/build/dockerfile
         container_name: ohana-crawler
         depends_on:
             db-init:

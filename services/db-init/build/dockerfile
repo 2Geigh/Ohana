@@ -1,10 +1,26 @@
-FROM golang:1.26-alpine AS base
-WORKDIR /usr/bin/local/Ohana/db-init
-COPY .. .
+FROM golang:1.27-alpine AS build
+
+WORKDIR /src
+
+COPY go.work go.work.sum ./
+COPY crawler/go.mod crawler/go.sum ./crawler/
+COPY db-init/go.mod db-init/go.sum ./db-init/
+
+COPY crawler ./crawler
+COPY db-init ./db-init
+
+WORKDIR /src/db-init
+
 RUN go test ./...
-RUN CGO_ENABLED=0 GOOS=linux go build -o ./bin/main.out ./cmd/main.go 
+
+RUN CGO_ENABLED=0 GOOS=linux \
+    go build -o /out/main.out ./cmd/main.go
+
 
 FROM alpine:3 AS dist
+
 WORKDIR /app
-COPY --from=base /usr/bin/local/Ohana/db-init/bin/main.out /app/
-CMD [ "/app/main.out" ]
+
+COPY --from=build /out/main.out /app/main.out
+
+CMD ["/app/main.out"]

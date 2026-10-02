@@ -3,7 +3,7 @@ package models_test
 import (
 	"testing"
 
-	"github.com/2Geigh/Ohana/crawler/internal/models"
+	"github.com/2Geigh/Ohana/db-init/pkg/models"
 )
 
 func TestModels_LocalQueueDequeue_EmptyQueue(t *testing.T) {

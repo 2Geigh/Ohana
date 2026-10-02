@@ -2,13 +2,16 @@ package database
 
 import (
 	"database/sql"
+	"embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"sync"
 
-	"github.com/2Geigh/Ohana/crawler/internal/models"
+	"github.com/2Geigh/Ohana/db-init/pkg/models"
 	_ "github.com/lib/pq"
+	"github.com/pressly/goose/v3"
 )
 
 type (
@@ -21,8 +24,15 @@ type (
 )
 
 var (
-	DB         *sql.DB = nil
+	DB *sql.DB = nil
+
 	DatabaseMu sync.Mutex
+
+	//go:embed migrations/*.sql
+	embedMigrations embed.FS
+
+	//go:embed data/*.json
+	embedData embed.FS
 )
 
 func DequeueLinks(db *sql.DB, mu *sync.Mutex) ([]models.Url, error) {
@@ -162,6 +172,60 @@ func EnqueueLinks(urls []models.Url, db *sql.DB, mu *sync.Mutex) error {
 	return nil
 }
 
+func InitializeDomainBlacklist(db *sql.DB) error {
+	var (
+		topThousandDomains = struct {
+			asBytes  []byte
+			asString string
+			asJson   []RankedDomain
+		}{}
+
+		err error
+	)
+
+	topThousandDomains.asBytes, err = embedData.ReadFile("data/ranked_domains.json")
+	if err != nil {
+		return fmt.Errorf("read file failed: %w", err)
+	}
+
+	err = json.Unmarshal(topThousandDomains.asBytes, &topThousandDomains.asJson)
+	if err != nil {
+		return fmt.Errorf("unmarshal json failed: %w", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx failed: %w", err)
+	}
+	defer tx.Rollback()
+
+	tx.Exec(`DELETE FROM domain_blacklist *;`)
+
+	for _, entry := range topThousandDomains.asJson {
+		stmt, err := tx.Prepare(
+			`INSERT INTO domain_blacklist (domain) values ($1);`,
+		)
+		if err != nil {
+			return fmt.Errorf("prepare stmt failed: %w", err)
+		}
+
+		_, err = stmt.Exec(entry.Domain)
+		if err != nil {
+			return fmt.Errorf("execute stmt failed: %w", err)
+		}
+		stmt.Close()
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("commit tx failed: %w", err)
+	}
+
+	log.Println("Domain blacklist initialized successfully")
+
+	return nil
+}
+
 func InitializeDB() error {
 	log.Println("Connecting to Postgresql...")
 
@@ -194,6 +258,12 @@ func InitializeDB() error {
 	}
 	log.Println("Database connection successful.")
 
+	log.Println("Executing migrations...")
+	err = migrate(DB)
+	if err != nil {
+		return fmt.Errorf("database migration(s) failed: %w", err)
+	}
+
 	return nil
 }
 
@@ -205,4 +275,21 @@ func ReportDatabaseHealth() {
 
 	// time.Sleep(5 * time.Second)
 	// }
+}
+
+func migrate(db *sql.DB) error {
+
+	goose.SetBaseFS(embedMigrations)
+
+	err := goose.SetDialect("postgres")
+	if err != nil {
+		return fmt.Errorf("Goose: set database dialect failed: %w", err)
+	}
+
+	err = goose.Up(db, "migrations")
+	if err != nil {
+		return fmt.Errorf("Goose: apply migrations failed: %w", err)
+	}
+
+	return nil
 }
