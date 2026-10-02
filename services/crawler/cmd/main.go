@@ -179,7 +179,7 @@ func crawl(wg *sync.WaitGroup) {
 		currentUrl = localQueue.Dequeue()
 
 		page.
-			Url = currentUrl.TrimTrailingSlash()
+			Url = currentUrl.Sanitize()
 		checkpoint = "set page.Url"
 
 		page.

@@ -88,8 +88,29 @@ func (url Url) IsTooRecentlyCrawled(db *sql.DB, oldness_threshold time.Duration)
 	return isTooRecentlyCrawled, nil
 }
 
+func (url Url) Sanitize() Url {
+	return url.TrimTrailingSlash().TrimWWW()
+}
+
 func (url Url) TrimTrailingSlash() Url {
 	return Url(
 		strings.TrimSuffix(string(url), "/"),
+	)
+}
+
+func (url Url) TrimWWW() Url {
+	protocol, urlWithoutProtocol, hasProtocol := strings.Cut(string(url), "://")
+
+	if hasProtocol {
+		return Url(
+			fmt.Sprintf(
+				"%s://%s",
+				protocol,
+				strings.TrimPrefix(string(urlWithoutProtocol), "www.")),
+		)
+	}
+
+	return Url(
+		strings.TrimPrefix(string(url), "www."),
 	)
 }

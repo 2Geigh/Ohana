@@ -176,3 +176,36 @@ func TestDomain_StripProtocol(t *testing.T) {
 		})
 	}
 }
+
+func TestDomain_TrimWWW(t *testing.T) {
+	tests := []struct {
+		name   string
+		domain models.Domain
+		want   models.Domain
+	}{
+		{
+			name:   "Domain with www",
+			domain: models.Domain("www.api.example.com?foo=bar#section"),
+			want:   models.Domain("api.example.com?foo=bar#section"),
+		},
+		{
+			name:   "Domain without www",
+			domain: models.Domain("example.co.uk"),
+			want:   models.Domain("example.co.uk"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.domain.TrimWWW()
+
+			if got != tt.want {
+				t.Errorf(
+					"GetSecondAndTopLevelDomain() = %q, want %q",
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}

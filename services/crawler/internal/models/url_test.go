@@ -6,6 +6,49 @@ import (
 	"github.com/2Geigh/Ohana/crawler/internal/models"
 )
 
+func TestUrl_TrimWWW(t *testing.T) {
+	tests := []struct {
+		name string
+		url  models.Url
+		want models.Url
+	}{
+		{
+			name: "URL with protocol without www",
+			url:  models.Url("gemini://api.example.com?foo=bar#section"),
+			want: models.Url("gemini://api.example.com?foo=bar#section"),
+		},
+		{
+			name: "URL without protocol without www",
+			url:  models.Url("api.example.com?foo=bar#section"),
+			want: models.Url("api.example.com?foo=bar#section"),
+		},
+		{
+			name: "URL with protocol with www",
+			url:  models.Url("gemini://www.api.example.com?foo=bar#section"),
+			want: models.Url("gemini://api.example.com?foo=bar#section"),
+		},
+		{
+			name: "URL without protocol with www",
+			url:  models.Url("www.api.example.com?foo=bar#section"),
+			want: models.Url("api.example.com?foo=bar#section"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.url.TrimWWW()
+
+			if got != tt.want {
+				t.Errorf(
+					"GetSecondAndTopLevelDomain() = %q, want %q",
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}
+
 func TestUrl_GetDomain(t *testing.T) {
 	tests := []struct {
 		name string

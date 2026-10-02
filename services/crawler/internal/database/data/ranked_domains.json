@@ -6550,5 +6550,7 @@
 	{ "domain": "coindesk.com" },
 	{ "domain": "forecast.io" },
 	{ "domain": "twilio.com" },
-	{ "domain": "flic.kr" }
+	{ "domain": "flic.kr" },
+	{ "domain": "mitsubishi-motors.com" },
+	{ "domain": "mitsubishi-motors.com.tw" }
 ]
