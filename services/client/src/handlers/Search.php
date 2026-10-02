@@ -9,7 +9,12 @@ final class Search extends Handler
 
     private static function search(string $sanitized_query): string
     {
-        $url = "http://query-engine:5000?q={$sanitized_query}";
+        $url = "http://query-engine:5000?" . http_build_query(
+            ['q' => $sanitized_query],
+            '',
+            '&',
+            PHP_QUERY_RFC3986
+        );
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // return value instead of sending it to stdout
@@ -57,7 +62,7 @@ final class Search extends Handler
                 array_push($results->Results, $toAdd);
             }
             // $results->Results = $decoded['Results'];
-            $results->SearchDuration_ns = (int) $decoded['SearchDuration'];
+            $results->SearchDuration_ns = (int) $decoded['SearchDuration_ns'];
             $results->ProcessedQuery = $decoded['ProcessedQuery'];
 
         } catch (Exception $e) {
@@ -87,7 +92,7 @@ final class searchResults
 
     public function GetDuration_s(): float
     {
-        return $this->SearchDuration_ns / (10 ** 9);
+        return round($this->SearchDuration_ns / (10 ** 9), 2);
     }
 }
 
