@@ -6552,5 +6552,7 @@
 	{ "domain": "twilio.com" },
 	{ "domain": "flic.kr" },
 	{ "domain": "mitsubishi-motors.com" },
-	{ "domain": "mitsubishi-motors.com.tw" }
+	{ "domain": "mitsubishi-motors.com.tw" },
+	{ "domain": "archiveofourown.org" },
+	{ "domain": "blogarama.com" }
 ]
