@@ -182,6 +182,39 @@ func EnqueueLinks(
 	return nil
 }
 
+func InitializeDB(db *sql.DB) error {
+	log.Println("Connecting to Postgresql...")
+
+	var (
+		username string = os.Getenv("DB_USERNAME")
+		password string = os.Getenv("DB_PASSWORD")
+		dbHost   string = os.Getenv("DB_HOST")
+		dbPort   string = os.Getenv("DB_CONTAINER_PORT")
+		dbName   string = os.Getenv("DB_NAME")
+
+		dsn string = fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", username, password, dbHost, dbPort, dbName)
+
+		err error
+	)
+
+	if username == "" {
+		log.Println("Warning: DB_USERNAME is empty. Connection might fail.")
+	}
+
+	DB, err = sql.Open("postgres", dsn)
+	if err != nil {
+		return fmt.Errorf("open database connection failed: %w", err)
+	}
+
+	err = DB.Ping()
+	if err != nil {
+		return fmt.Errorf("verify database connection failed: %w", err)
+	}
+	log.Println("Database connection successful.")
+
+	return nil
+}
+
 func InitializeDomainBlacklist(
 	db *sql.DB,
 ) error {
@@ -238,58 +271,10 @@ func InitializeDomainBlacklist(
 	return nil
 }
 
-func InitializeDB() error {
-	log.Println("Connecting to Postgresql...")
-
-	var (
-		username string = os.Getenv("DB_USERNAME")
-		password string = os.Getenv("DB_PASSWORD")
-		dbHost   string = os.Getenv("DB_HOST")
-		dbPort   string = os.Getenv("DB_CONTAINER_PORT")
-		dbName   string = os.Getenv("DB_NAME")
-
-		dsn string = fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=disable", username, password, dbHost, dbPort, dbName)
-
-		err error
-	)
-
-	if username == "" {
-		log.Println("Warning: DB_USERNAME is empty. Connection might fail.")
-	}
-
-	DB, err = sql.Open("postgres", dsn)
-	if err != nil {
-		return fmt.Errorf("open database connection failed: %w", err)
-	}
-
-	err = DB.Ping()
-	if err != nil {
-		return fmt.Errorf("verify database connection failed: %w", err)
-	}
-	log.Println("Database connection successful.")
-
-	log.Println("Executing migrations...")
-	err = migrate(DB)
-	if err != nil {
-		return fmt.Errorf("database migration(s) failed: %w", err)
-	}
-
-	return nil
-}
-
-func ReportDatabaseHealth() {
-	// for {
-	stats := DB.Stats()
-	log.Printf(`[DB STATS] InUse: %d | Idle: %d | Open: %d | WaitCount: %d`,
-		stats.InUse, stats.Idle, stats.OpenConnections, stats.WaitCount)
-
-	// time.Sleep(5 * time.Second)
-	// }
-}
-
-func migrate(
+func Migrate(
 	db *sql.DB,
 ) error {
+	log.Println("Executing migrations...")
 
 	goose.SetBaseFS(embedMigrations)
 
@@ -304,4 +289,14 @@ func migrate(
 	}
 
 	return nil
+}
+
+func ReportDatabaseHealth() {
+	// for {
+	stats := DB.Stats()
+	log.Printf(`[DB STATS] InUse: %d | Idle: %d | Open: %d | WaitCount: %d`,
+		stats.InUse, stats.Idle, stats.OpenConnections, stats.WaitCount)
+
+	// time.Sleep(5 * time.Second)
+	// }
 }

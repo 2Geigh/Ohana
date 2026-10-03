@@ -7,16 +7,28 @@ import (
 
 	"github.com/2Geigh/Ohana/crawler/internal/crawling"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
+	"github.com/2Geigh/Ohana/db-init/pkg/models"
 )
 
 const (
-	NUMBER_OF_CRAWLERS = 10
+	NUMBER_OF_CRAWLERS = 15
 )
 
 func init() {
-	err := database.InitializeDB()
+	err := database.InitializeDB(database.DB)
 	if err != nil {
 		log.Fatalf("connect to database failed: %v", err)
+	}
+
+	for _, url := range crawling.SeedURLs {
+		err := database.EnqueueLinks(
+			[]models.Url{url},
+			database.DB,
+			&database.DatabaseMu,
+		)
+		if err != nil {
+			log.Fatalf("enqueue seed URLs failed: %v", err)
+		}
 	}
 }
 
