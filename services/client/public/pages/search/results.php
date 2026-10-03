@@ -19,7 +19,13 @@ require_once PROJECT_ROOT . '/src/util/Language.php';
             <a href="<?= htmlspecialchars((string) $result->Url, ENT_QUOTES, 'UTF-8') ?>">
                 [<?php
                 $languageCode = htmlspecialchars((string) $result->Language, ENT_QUOTES, 'UTF-8');
-                echo $LanguageEmojis[$languageCode];
+
+                if (key_exists($languageCode, $LanguageEmojis)) {
+                    echo $LanguageEmojis[$languageCode];
+                } else {
+                    echo $LanguageEmojis['xx'];
+                }
+
                 ?>]
                 <?= htmlspecialchars((string) $result->Title, ENT_QUOTES, 'UTF-8') ?>
             </a>
