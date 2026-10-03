@@ -110,6 +110,16 @@ class page {
             return;
         }
 
+        if (languageResult.isReasonablyCertain()) {
+            Language = "xx";
+            return;
+        }
+
+        if (languageResult.isUnknown()) {
+            Language = "xx";
+            return;
+        }
+
         Language = languageResult.getLanguage().substring(0, 2);
     }
 
@@ -193,7 +203,10 @@ public class App {
         );
     }
 
-    private static void updateDatabase(Connection conn, page p) throws Exception {
+    private static void updateDatabase(
+            Connection conn,
+            page p
+    ) throws Exception {
         try {
             conn.setAutoCommit(false); // Begin transaction
         } catch (SQLException e) {
