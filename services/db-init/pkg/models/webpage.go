@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,7 +37,7 @@ func (page *Webpage) Save(
 		return fmt.Errorf("domain empty")
 	}
 
-	if len(page.Url.TrimTrailingSlash()) == 0 {
+	if len(page.Url.SanitizeToSave()) == 0 {
 		return fmt.Errorf("url empty")
 	}
 
@@ -70,7 +71,7 @@ func (page *Webpage) Save(
 		`SELECT id 
 		FROM pages
 		WHERE link = $1;`,
-		page.Url.TrimTrailingSlash(),
+		page.Url.SanitizeToSave(),
 	).Scan(&pageId)
 	if err == sql.ErrNoRows {
 		isPageInDatabase = false
@@ -135,12 +136,11 @@ func (page *Webpage) Save(
 		if err != nil {
 			return fmt.Errorf("prepare INSERT page stmt failed: %w", err)
 		}
-
 		_, err = stmt.Exec(
 			siteId,
 			page.Title,
 			page.Description,
-			page.Url.TrimTrailingSlash(),
+			page.Url.SanitizeToSave(),
 			page.Text,
 			page.ResponseBody,
 			time.Now(),
@@ -203,7 +203,7 @@ func (p *Webpage) EnqueueToIndexer(
 	err = tx.QueryRow(
 		`SELECT id, site_id
 		FROM pages
-		WHERE link = $1;`, p.Url).Scan(&pageId, &siteId)
+		WHERE link = $1;`, p.Url.SanitizeToSave()).Scan(&pageId, &siteId)
 	if err != nil {
 		return fmt.Errorf("SELECT page_id and site_id failed: %w", err)
 	}

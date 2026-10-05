@@ -161,7 +161,7 @@ func EnqueueLinks(
 			return fmt.Errorf("prepare statement failed: %w", err)
 		}
 
-		_, err = stmt.Exec(url.Sanitize(), url.GetDomain().GetFQDN())
+		_, err = stmt.Exec(url.SanitizeToEnqueue(), url.GetDomain().GetFQDN())
 		if err != nil {
 			return fmt.Errorf("execute statement failed: %w", err)
 		}

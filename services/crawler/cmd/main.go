@@ -21,6 +21,7 @@ func init() {
 		log.Fatalf("connect to database failed: %v", err)
 	}
 
+	log.Println("Enqueing seed URLs...")
 	for _, url := range crawling.SeedURLs {
 		err := database.EnqueueLinks(
 			[]models.Url{url},
@@ -31,6 +32,7 @@ func init() {
 			log.Fatalf("enqueue seed URLs failed: %v", err)
 		}
 	}
+	log.Println("Successfully enqueued seed URLs")
 }
 
 func main() {

@@ -221,3 +221,71 @@ func TestUrl_GetDomain(t *testing.T) {
 		})
 	}
 }
+
+func TestUrl_StripQueriesAndFragments(t *testing.T) {
+	tests := []struct {
+		name string
+		url  models.Url
+		want models.Url
+	}{
+		{
+			name: "empty URL",
+			url:  models.Url(""),
+			want: models.Url(""),
+		},
+		{
+			name: "HTTPS YouTube URL",
+			url:  models.Url("https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+			want: models.Url("https://www.youtube.com/watch"),
+		},
+		{
+			name: "HTTP example URL",
+			url:  models.Url("http://www.example.com"),
+			want: models.Url("http://www.example.com"),
+		},
+		{
+			name: "URL with a path",
+			url:  models.Url("https://example.org/products/item"),
+			want: models.Url("https://example.org/products/item"),
+		},
+		{
+			name: "URL with a fragment",
+			url:  models.Url("https://github.com/golang/go#readme"),
+			want: models.Url("https://github.com/golang/go"),
+		},
+		{
+			name: "Routeless url with query",
+			url:  models.Url("https://support.github.com?tags=dotcom-footer"),
+			want: models.Url("https://support.github.com"),
+		},
+		{
+			name: "Routeless URL with a fragment",
+			url:  models.Url("https://github.com#readme"),
+			want: models.Url("https://github.com"),
+		},
+		{
+			name: "Routeless URL with query before fragment",
+			url:  models.Url("https://example.com?foo=bar#section"),
+			want: models.Url("https://example.com"),
+		},
+		{
+			name: "Routeless URL with fragment before query",
+			url:  models.Url("https://example.com#section?foo=bar"),
+			want: models.Url("https://example.com"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.url.StripQueriesAndFragments()
+
+			if got != tt.want {
+				t.Errorf(
+					"StripQueriesAndFragments() = %q, want %q",
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}

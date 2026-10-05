@@ -60,6 +60,27 @@ func (url Url) GetDomain() Domain {
 	return Domain(domain)
 }
 
+func (url Url) StripQueriesAndFragments() Url {
+	var toReturn string = string(url)
+
+	// We run this twice
+	// To handle ? and # appearing
+	// In whatever order
+	for range 2 {
+		urlWithoutQuery, _, containsQuery := strings.Cut(toReturn, "?")
+		if containsQuery {
+			toReturn = urlWithoutQuery
+		}
+
+		urlWithoutFragment, _, containsFragment := strings.Cut(toReturn, "#")
+		if containsFragment {
+			toReturn = urlWithoutFragment
+		}
+	}
+
+	return Url(toReturn)
+}
+
 func (url Url) IsTooRecentlyCrawled(
 	db *sql.DB,
 	oldness_threshold time.Duration,
@@ -94,8 +115,32 @@ func (url Url) IsTooRecentlyCrawled(
 	return isTooRecentlyCrawled, nil
 }
 
-func (url Url) Sanitize() Url {
+func (url Url) Protocol() string {
+	protocol, _, includesProtocol := strings.Cut(string(url), "://")
+
+	if !includesProtocol {
+		return ""
+	}
+
+	return protocol
+}
+
+func (url Url) SanitizeToEnqueue() Url {
 	return url.TrimTrailingSlash().TrimWWW()
+}
+
+func (url Url) SanitizeToSave() Url {
+	return url.TrimTrailingSlash().TrimWWW().StripQueriesAndFragments()
+}
+
+func (url Url) StripProtocol() Url {
+	_, urlWithoutProtocol, includesProtocol := strings.Cut(string(url), "://")
+
+	if !includesProtocol {
+		return url
+	}
+
+	return Url(urlWithoutProtocol)
 }
 
 func (url Url) TrimTrailingSlash() Url {

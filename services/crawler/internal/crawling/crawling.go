@@ -31,6 +31,8 @@ const (
 
 var (
 	SeedURLs = []models.Url{
+		models.Url("https://download.mozilla.org/?product=firefox-stub&os=win&lang=en-US"),
+		models.Url("http://nicholasgarcia.com"),
 		models.Url("https://nicholasgarcia.com"),
 		models.Url("https://angeldolly.com/"),
 		models.Url("https://nyscyra.net/"),
@@ -144,7 +146,7 @@ func Crawl(
 		currentUrl = localQueue.Dequeue()
 
 		page.
-			Url = currentUrl.Sanitize()
+			Url = currentUrl
 		checkpoint = "set page.Url"
 
 		page.
@@ -311,7 +313,7 @@ func CleanCrawlerQueue(
 	}
 
 	for true {
-		if iteration_counter.Load() < 100 {
+		if iteration_counter.Load() < 10 {
 			time.Sleep(6 * time.Second)
 			continue
 		}
