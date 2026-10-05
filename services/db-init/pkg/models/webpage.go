@@ -41,6 +41,10 @@ func (page *Webpage) Save(
 		return fmt.Errorf("url empty")
 	}
 
+	if strings.ToLower(page.Url.Protocol()) != "https" {
+		return fmt.Errorf("attempted to save page with non-HTTPS URL")
+	}
+
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("start tx failed: %w", err)
