@@ -6581,5 +6581,8 @@
 	{ "domain": "archiveofourown.org" },
 	{ "domain": "blogarama.com" },
 	{ "domain": "amzn.to" },
-	{ "domain": "mozilla.org" }
+	{ "domain": "mozilla.org" },
+	{ "domain": "telegram.org" },
+	{ "domain": "telegram.me" },
+	{ "domain": "t.me" }
 ]
