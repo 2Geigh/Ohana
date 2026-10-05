@@ -110,7 +110,7 @@ class page {
             return;
         }
 
-        if (languageResult.isReasonablyCertain()) {
+        if (!languageResult.isReasonablyCertain()) {
             Language = "xx";
             return;
         }
