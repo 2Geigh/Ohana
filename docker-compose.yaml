@@ -49,6 +49,19 @@ services:
         env_file:
             - ./.env
 
+    db-janitor:
+        networks:
+            - infrastructure
+        build:
+            context: ./services
+            dockerfile: ./db-janitor/build/dockerfile
+        container_name: ohana-db-janitor
+        depends_on:
+            db-init:
+                condition: service_completed_successfully
+        env_file:
+            - ./.env
+
     crawler:
         networks:
             - infrastructure

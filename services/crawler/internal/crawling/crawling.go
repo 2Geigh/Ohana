@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/2Geigh/Ohana/crawler/internal/connection"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
 	"golang.org/x/net/html"
@@ -100,6 +101,7 @@ var (
 		models.Url("https://ideas-arquitecturadas.blogspot.com"),
 		models.Url("https://マリウス.com/"),
 		models.Url("https://personalsit.es/"),
+		models.Url("https://faircamp.webr.ing/"),
 	}
 )
 
@@ -132,7 +134,7 @@ func Crawl(
 		}
 	}()
 
-	localQueue.Links, err = database.DequeueLinks(database.DB, &database.DatabaseMu)
+	localQueue.Links, err = database.DequeueLinks(connection.DB, &database.DatabaseMu)
 	if err != nil {
 		log.Printf("dequeue from database's global queue failed: %v", err)
 		return
@@ -156,11 +158,16 @@ func Crawl(
 		var (
 			isPageTooRecentlyCrawled bool
 		)
-		isPageTooRecentlyCrawled, err = page.Url.IsTooRecentlyCrawled(database.DB, CRAWLER_OLDNESS_THRESHOLD)
+		isPageTooRecentlyCrawled, err = page.Url.
+			IsTooRecentlyCrawled(
+				connection.DB,
+				CRAWLER_OLDNESS_THRESHOLD,
+			)
 		if err != nil {
 			log.Printf("[%s] determine page freshness failed: %v", currentUrl, err)
 			continue
 		}
+
 		if isPageTooRecentlyCrawled {
 			continue
 		}
@@ -170,11 +177,12 @@ func Crawl(
 			HasBeenRequestedTooRecently(
 				CRAWLER_POLITENESS_INTERVAL,
 				&database.DatabaseMu,
-				database.DB)
+				connection.DB)
 		if err != nil {
 			log.Printf("[%s] determine necessary politeness failed: %v", currentUrl, err)
 			continue
 		}
+
 		if hasDomainBeenRequestedTooRecently {
 			time.Sleep(CRAWLER_POLITENESS_INTERVAL)
 		}
@@ -233,7 +241,7 @@ func Crawl(
 		// Instead of as a NULL value
 		page.Outneighbours = make([]models.Url, 0)
 		page.Outneighbours = append(page.Outneighbours, findHyperlinks(doc, currentUrl)...)
-		err = database.EnqueueLinks(page.Outneighbours, database.DB, &database.DatabaseMu)
+		err = database.EnqueueLinks(page.Outneighbours, connection.DB, &database.DatabaseMu)
 		if err != nil {
 			log.Printf("[%s] enqueue failed: %v", currentUrl, err)
 			continue
@@ -242,7 +250,7 @@ func Crawl(
 		var (
 			isDomainBlacklisted bool
 		)
-		isDomainBlacklisted, err = page.Fqdn.IsBlacklisted(database.DB)
+		isDomainBlacklisted, err = page.Fqdn.IsBlacklisted(connection.DB)
 		if err != nil {
 			log.Printf("[%s] determine domain blacklist status failed: %v", currentUrl, err)
 			continue
@@ -262,7 +270,7 @@ func Crawl(
 			log.Printf("[%s] determine fediverse participation status failed: %v", currentUrl, err)
 		}
 
-		err = page.Save(database.DB)
+		err = page.Save(connection.DB)
 		if err != nil {
 			log.Printf("[%s] save to database failed: %v", currentUrl, err)
 			continue
@@ -270,7 +278,7 @@ func Crawl(
 
 		log.Printf("[%s] (%d)", currentUrl, iterator.Load())
 
-		err = page.EnqueueToIndexer(database.DB, &database.DatabaseMu)
+		err = page.EnqueueToIndexer(connection.DB, &database.DatabaseMu)
 		if err != nil {
 			log.Printf("[%s] enqueue to indexer failed: %v", currentUrl, err)
 			continue

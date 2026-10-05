@@ -11,7 +11,7 @@ COPY crawler ./crawler
 COPY db-init ./db-init
 COPY db-janitor ./db-janitor
 
-WORKDIR /src/db-init
+WORKDIR /src/db-janitor
 
 RUN go test ./...
 

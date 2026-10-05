@@ -195,6 +195,16 @@ func TestUrl_GetDomain(t *testing.T) {
 			url:  models.Url("https://api.example.com?foo=bar#section"),
 			want: models.Domain("api.example.com"),
 		},
+		{
+			name: "URL with a query, and fragment, and a non-ASCII domain",
+			url:  models.Url("https://マリウス.com?foo=bar#section"),
+			want: models.Domain("マリウス.com"),
+		},
+		{
+			name: "URL with a subdomain, query, and fragment, and a non-ASCII domain",
+			url:  models.Url("https://api.マリウス.com?foo=bar#section"),
+			want: models.Domain("api.マリウス.com"),
+		},
 	}
 
 	for _, tt := range tests {

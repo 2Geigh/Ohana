@@ -5,17 +5,18 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/2Geigh/Ohana/crawler/internal/connection"
 	"github.com/2Geigh/Ohana/crawler/internal/crawling"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
 )
 
 const (
-	NUMBER_OF_CRAWLERS = 15
+	NUMBER_OF_CRAWLERS = 10
 )
 
 func init() {
-	err := database.InitializeDB(database.DB)
+	err := database.InitializeDB(&connection.DB)
 	if err != nil {
 		log.Fatalf("connect to database failed: %v", err)
 	}
@@ -23,7 +24,7 @@ func init() {
 	for _, url := range crawling.SeedURLs {
 		err := database.EnqueueLinks(
 			[]models.Url{url},
-			database.DB,
+			connection.DB,
 			&database.DatabaseMu,
 		)
 		if err != nil {
@@ -40,7 +41,7 @@ func main() {
 		crawlIteration atomic.Int64
 	)
 
-	defer database.DB.Close()
+	defer connection.DB.Close()
 
 	startCrawler = func() {
 		wg.Add(1)
@@ -57,7 +58,11 @@ func main() {
 		startCrawler()
 	}
 
-	go crawling.CleanCrawlerQueue(database.DB, &database.DatabaseMu, &crawlIteration)
+	go crawling.CleanCrawlerQueue(
+		connection.DB,
+		&database.DatabaseMu,
+		&crawlIteration,
+	)
 
 	wg.Wait()
 }

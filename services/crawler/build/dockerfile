@@ -5,9 +5,11 @@ WORKDIR /src
 COPY go.work go.work.sum ./
 COPY crawler/go.mod crawler/go.sum ./crawler/
 COPY db-init/go.mod db-init/go.sum ./db-init/
+COPY db-init/go.mod db-janitor/go.sum ./db-janitor/
 
 COPY crawler ./crawler
 COPY db-init ./db-init
+COPY db-janitor ./db-janitor
 
 WORKDIR /src/crawler
 

@@ -24,9 +24,7 @@ type (
 )
 
 var (
-	DB *sql.DB = nil
-
-	DatabaseMu sync.Mutex
+	DatabaseMu sync.Mutex = sync.Mutex{}
 
 	//go:embed migrations/*.sql
 	embedMigrations embed.FS
@@ -182,7 +180,9 @@ func EnqueueLinks(
 	return nil
 }
 
-func InitializeDB(db *sql.DB) error {
+func InitializeDB(
+	db **sql.DB,
+) error {
 	log.Println("Connecting to Postgresql...")
 
 	var (
@@ -201,12 +201,12 @@ func InitializeDB(db *sql.DB) error {
 		log.Println("Warning: DB_USERNAME is empty. Connection might fail.")
 	}
 
-	DB, err = sql.Open("postgres", dsn)
+	*db, err = sql.Open("postgres", dsn)
 	if err != nil {
 		return fmt.Errorf("open database connection failed: %w", err)
 	}
 
-	err = DB.Ping()
+	err = (*db).Ping()
 	if err != nil {
 		return fmt.Errorf("verify database connection failed: %w", err)
 	}
@@ -217,6 +217,7 @@ func InitializeDB(db *sql.DB) error {
 
 func InitializeDomainBlacklist(
 	db *sql.DB,
+	mu *sync.Mutex,
 ) error {
 	var (
 		topThousandDomains = struct {
@@ -227,6 +228,8 @@ func InitializeDomainBlacklist(
 
 		err error
 	)
+	mu.Lock()
+	defer mu.Unlock()
 
 	topThousandDomains.asBytes, err = embedData.ReadFile("data/ranked_domains.json")
 	if err != nil {
@@ -291,9 +294,9 @@ func Migrate(
 	return nil
 }
 
-func ReportDatabaseHealth() {
+func ReportDatabaseHealth(db *sql.DB) {
 	// for {
-	stats := DB.Stats()
+	stats := db.Stats()
 	log.Printf(`[DB STATS] InUse: %d | Idle: %d | Open: %d | WaitCount: %d`,
 		stats.InUse, stats.Idle, stats.OpenConnections, stats.WaitCount)
 
