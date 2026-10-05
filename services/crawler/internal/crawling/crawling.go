@@ -1,6 +1,7 @@
 package crawling
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
+	"golang.org/x/net/html/charset"
 )
 
 const (
@@ -104,6 +106,10 @@ var (
 		models.Url("https://マリウス.com/"),
 		models.Url("https://personalsit.es/"),
 		models.Url("https://faircamp.webr.ing/"),
+		models.Url("https://www.2chan.net/"),
+		models.Url("https://www.2chan.net/bbsmenu.html"),
+		models.Url("https://www.2chan.net/index2.html"),
+		models.Url("https://imageboards.net/"),
 	}
 )
 
@@ -219,13 +225,32 @@ func Crawl(
 			panic(fmt.Errorf("close resposne body failed: %w", err))
 		}
 
+		if !utf8.Valid(body.asBytes) {
+			contentType := response.Header.Get("Content-Type")
+
+			reader, err := charset.NewReader(
+				bytes.NewReader(body.asBytes),
+				contentType,
+			)
+			if err != nil {
+				log.Printf("[%s] UTF-8 transcoding failed: create byte reader failed (likely couldn't determine character encoding): %v", currentUrl, err)
+				continue
+			}
+
+			body.asBytes, err = io.ReadAll(reader)
+			if err != nil {
+				log.Printf("[%s] UTF-8 transcoding failed: conversion failed: %v", currentUrl, err)
+				continue
+			}
+
+			if !utf8.Valid(body.asBytes) {
+				log.Printf("[%s] UTF-8 transcoding failed: still non-UTF-8 after conversion", currentUrl)
+				continue
+			}
+		}
+
 		page.ResponseBody = string(body.asBytes)
 		checkpoint = "set page.ResponseBody"
-
-		if !utf8.Valid(body.asBytes) {
-			log.Printf("[%s] invalid UTF-8", currentUrl)
-			continue
-		}
 
 		// TODO: Skip XML pages
 
