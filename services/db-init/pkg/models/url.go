@@ -130,7 +130,7 @@ func (url Url) SanitizeToEnqueue() Url {
 }
 
 func (url Url) SanitizeToSave() Url {
-	return url.TrimTrailingSlash().TrimWWW().StripQueriesAndFragments()
+	return url.TrimTrailingSlash().TrimWWW().StripQueriesAndFragments().TrimTrailingSlash()
 }
 
 func (url Url) StripProtocol() Url {

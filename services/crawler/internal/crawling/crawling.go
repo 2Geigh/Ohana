@@ -110,6 +110,7 @@ var (
 		models.Url("https://www.2chan.net/bbsmenu.html"),
 		models.Url("https://www.2chan.net/index2.html"),
 		models.Url("https://imageboards.net/"),
+		models.Url("https://aboutideasnow.com/"),
 	}
 )
 
