@@ -166,7 +166,11 @@ func Crawl(
 		}
 	}()
 
-	for len((*queues)[domain]) > 0 {
+	for func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return len((*queues)[domain])
+	}() > 0 {
 		mu.Lock()
 		currentUrl = (*queues).Dequeue(domain)
 		mu.Unlock()
