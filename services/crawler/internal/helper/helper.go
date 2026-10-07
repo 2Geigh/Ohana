@@ -21,19 +21,3 @@ func PrintHtmlNodeInfo(
 	// fmt.Println("node.PrevSibling", node.PrevSibling)
 	fmt.Println("node.Type", node.Type)
 }
-
-func LogPageInfo() {
-
-}
-
-func LogPageError() {
-
-}
-
-func Concatenate[x any](a []x, b []x) []x {
-	new := a
-	for _, v := range b {
-		new = append(new, v)
-	}
-	return new
-}

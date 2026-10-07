@@ -9,6 +9,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// Delete all sites in the database that are of blacklisted domains
 func PurgeDatabase(
 	db *sql.DB,
 	mu *sync.Mutex,

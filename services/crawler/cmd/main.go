@@ -9,7 +9,6 @@ import (
 
 	"github.com/2Geigh/Ohana/crawler/internal/connection"
 	"github.com/2Geigh/Ohana/crawler/internal/crawling"
-	"github.com/2Geigh/Ohana/crawler/internal/helper"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
 )
@@ -44,11 +43,10 @@ func main() {
 
 		crawlerMu sync.Mutex
 
-		crawlerQueues       crawling.Queues = make(crawling.Queues)
-		numberOfCrawlers    atomic.Int64
-		crawlIteration      atomic.Int64
-		crawlerId           int64 = 0
-		isCrawlerRefreshDue atomic.Bool
+		crawlerQueues    crawling.Queues = make(crawling.Queues)
+		numberOfCrawlers atomic.Int64
+		crawlIteration   atomic.Int64
+		crawlerId        int64 = 0
 	)
 
 	wg.Go(func() {
@@ -69,18 +67,9 @@ func main() {
 		}
 	})
 
-	isCrawlerRefreshDue.Swap(true)
-
 	for true {
-		// crawlerMu.Lock()
-		// time.Sleep(2 * time.Second)
-		// crawlerMu.Unlock()
 
-		if !isCrawlerRefreshDue.Load() {
-			continue
-		}
-
-		newLink, err := database.DequeueLinks(connection.DB, &database.DatabaseMu)
+		newLink, err := database.DequeueLink(connection.DB, &database.DatabaseMu)
 		if err != nil {
 			log.Printf("dequeue links from database crawler queue failed: %v", err)
 			time.Sleep(10 * time.Second)
@@ -95,7 +84,7 @@ func main() {
 
 		if isDomainOwnedByACrawler {
 			crawlerMu.Lock()
-			crawlerQueues[fqdn] = helper.Concatenate(crawlerQueues[fqdn], []models.Url{newLink})
+			crawlerQueues[fqdn] = append(crawlerQueues[fqdn], newLink)
 			crawlerMu.Unlock()
 			continue
 		}
@@ -106,14 +95,13 @@ func main() {
 			crawlerMu.Unlock()
 		}
 
-		// fmt.Println(crawlerQueues)
-
 		if numberOfCrawlers.Load() >= MAXIMUM_NUMBER_OF_CRAWLERS {
 			continue
 		}
 
 		wg.Go(func() {
 			numberOfCrawlers.Add(1)
+			defer numberOfCrawlers.Add(-1)
 
 			crawlerId += 1
 
@@ -128,10 +116,9 @@ func main() {
 			)
 
 			crawlerMu.Lock()
-			numberOfCrawlers.Add(-1)
 			delete(crawlerQueues, fqdn)
-			isCrawlerRefreshDue.Store(true)
 			crawlerMu.Unlock()
+
 		})
 	}
 

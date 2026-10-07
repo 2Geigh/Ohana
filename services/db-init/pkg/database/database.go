@@ -33,7 +33,7 @@ var (
 	embedData embed.FS
 )
 
-func DequeueLinks(
+func DequeueLink(
 	db *sql.DB,
 	mu *sync.Mutex,
 ) (
@@ -259,11 +259,7 @@ func Migrate(
 }
 
 func ReportDatabaseHealth(db *sql.DB) {
-	// for {
 	stats := db.Stats()
 	log.Printf(`[DB STATS] InUse: %d | Idle: %d | Open: %d | WaitCount: %d`,
 		stats.InUse, stats.Idle, stats.OpenConnections, stats.WaitCount)
-
-	// time.Sleep(5 * time.Second)
-	// }
 }
