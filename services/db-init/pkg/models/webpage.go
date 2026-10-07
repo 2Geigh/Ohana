@@ -26,6 +26,10 @@ type (
 		Date_discovered   time.Time `json:"date_discovered"`
 		Date_last_crawled time.Time `json:"date_last_crawled"`
 		IsFediverseNode   bool      `json:"is_site_fediverse"`
+
+		HasDomainBeenRequestedTooRecently bool
+		IsDomainBlacklisted               bool
+		IsTooRecentlyCrawled              bool
 	}
 )
 
