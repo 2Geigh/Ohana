@@ -117,9 +117,26 @@ var (
 	}
 )
 
+type Crawler struct {
+	Id               int64
+	Queues           *Queues
+	Fqdn             models.Domain
+	Mu               *sync.Mutex
+	Db               *sql.DB
+	NumberOfCrawlers *atomic.Int64
+	CrawlIteration   *atomic.Int64
+
+	currentUrl         models.Url // for debugging
+	checkpoint         string     // for debugging
+	degreeOfPoliteness int
+	politenessInterval time.Duration
+}
+
 type Queues map[models.Domain][]models.Url
 
-func (queues Queues) Dequeue(fqdn models.Domain) models.Url {
+func (queues Queues) Dequeue(
+	fqdn models.Domain,
+) models.Url {
 
 	if len(queues[fqdn]) < 1 {
 		return models.Url("")
@@ -136,69 +153,55 @@ func (queues Queues) Dequeue(fqdn models.Domain) models.Url {
 	return toReturn
 }
 
-func Crawl(
-	queues *(Queues),
-	domain models.Domain,
-	db *sql.DB,
-	mu *sync.Mutex,
-	numberOfCrawlers *atomic.Int64,
-	iterator *atomic.Int64,
-	id int64,
-) {
+func (c Crawler) Crawl() {
 	// log.Printf("Starting crawler %d for %s (%d links)...", id, domain, len((*queues)[domain]))
 
 	var (
-		degreeOfPoliteness int = 0
-
-		// for debugging
-		currentUrl models.Url = "void"
-		checkpoint string
-		err        error
+		err error
 	)
+
+	c.currentUrl = "void"
+	c.degreeOfPoliteness = 0
+	c.politenessInterval = CRAWLER_STARTING_POLITENESS_INTERVAL
 
 	defer func() {
 		raisedError := recover()
 
 		if raisedError != nil {
-			log.Printf("[%s] PANICKED AFTER %q\npanic: %v\nstack trace:\n%s",
-				currentUrl,
-				checkpoint,
+			log.Printf(
+				"[%s] PANICKED AFTER %q\npanic: %v\nstack trace:\n%s",
+				c.currentUrl,
+				c.checkpoint,
 				raisedError,
-				debug.Stack())
+				debug.Stack(),
+			)
 		}
 	}()
 
-	for func() int {
-		mu.Lock()
-		defer mu.Unlock()
-		return len((*queues)[domain])
-	}() > 0 {
+	for c.queueLength() > 0 {
 		var (
 			page models.Webpage
 		)
 
-		mu.Lock()
-		currentUrl = (*queues).Dequeue(domain)
-		mu.Unlock()
+		c.Mu.Lock()
+		c.currentUrl = (*c.Queues).Dequeue(c.Fqdn)
+		c.Mu.Unlock()
 
 		// e ** 3 is ~20
 		// 20 * 12 seconds is ~4 minutes
 		// If we're still getting status code 429 after 4 minutes it's not worth trying the domain
-		if degreeOfPoliteness > 3 {
+		if c.degreeOfPoliteness > 3 {
 			continue
 		}
 
-		page.
-			Url = currentUrl
-		checkpoint = "set page.Url"
+		page.Url = c.currentUrl
+		c.checkpoint = "set page.Url"
 
-		page.
-			FullDomain = page.Url.GetDomain()
-		checkpoint = "set page.FullDomain"
+		page.FullDomain = page.Url.GetDomain()
+		c.checkpoint = "set page.FullDomain"
 
-		page.
-			Fqdn = page.FullDomain.GetFQDN()
-		checkpoint = "set page.Fqdn"
+		page.Fqdn = page.FullDomain.GetFQDN()
+		c.checkpoint = "set page.Fqdn"
 
 		var (
 			isPageTooRecentlyCrawled bool
@@ -209,7 +212,7 @@ func Crawl(
 				CRAWLER_OLDNESS_THRESHOLD,
 			)
 		if err != nil {
-			log.Printf("[%s] determine page freshness failed: %v", currentUrl, err)
+			c.logError("determine page freshness failed", err)
 			continue
 		}
 
@@ -217,29 +220,25 @@ func Crawl(
 			continue
 		}
 
-		var (
-			politenessInterval time.Duration = time.Duration(
-				float64(CRAWLER_STARTING_POLITENESS_INTERVAL) * math.Exp(float64(degreeOfPoliteness)),
-			)
-		)
 		hasDomainBeenRequestedTooRecently, err := page.
 			Fqdn.
 			HasBeenRequestedTooRecently(
-				politenessInterval,
+				c.politenessInterval,
 				&database.DatabaseMu,
 				connection.DB)
 		if err != nil {
-			log.Printf("[%s] determine necessary politeness failed: %v", currentUrl, err)
+			c.logError("determine necessary politeness failed", err)
 			continue
 		}
 
 		if hasDomainBeenRequestedTooRecently {
-			waitPolitely(politenessInterval, &degreeOfPoliteness)
+			c.waitPolitely()
+			continue
 		}
 
-		response, err := http.Get(string(currentUrl))
+		response, err := http.Get(string(c.currentUrl))
 		if err != nil {
-			log.Printf("[%s] GET request unfulfilled: %v", currentUrl, err)
+			c.logError("GET request unfulfilled", err)
 			continue
 		}
 
@@ -247,10 +246,11 @@ func Crawl(
 			isRequestSuccessful bool = response.StatusCode >= 200 && response.StatusCode < 300
 		)
 		if response.StatusCode == 429 {
-			waitPolitely(politenessInterval, &degreeOfPoliteness)
+			c.waitPolitely()
+			continue
 		}
 		if !isRequestSuccessful {
-			log.Printf("[%s] %s", currentUrl, response.Status)
+			c.logError(response.Status, nil)
 			continue
 		}
 
@@ -262,12 +262,12 @@ func Crawl(
 		}
 		body.asBytes, err = io.ReadAll(response.Body)
 		if err != nil {
-			log.Printf("[%s] read response body failed: %v", currentUrl, err)
+			c.logError("read response body failed", err)
 			continue
 		}
 		err = response.Body.Close()
 		if err != nil {
-			panic(fmt.Errorf("close resposne body failed: %w", err))
+			panic(fmt.Errorf("close response body failed: %w", err))
 		}
 
 		if !utf8.Valid(body.asBytes) {
@@ -278,24 +278,24 @@ func Crawl(
 				contentType,
 			)
 			if err != nil {
-				log.Printf("[%s] UTF-8 transcoding failed: create byte reader failed (likely couldn't determine character encoding): %v", currentUrl, err)
+				c.logError("UTF-8 transcoding failed: create byte reader failed (likely couldn't determine character encoding)", err)
 				continue
 			}
 
 			body.asBytes, err = io.ReadAll(reader)
 			if err != nil {
-				log.Printf("[%s] UTF-8 transcoding failed: conversion failed: %v", currentUrl, err)
+				c.logError("UTF-8 transcoding failed: conversion failed", err)
 				continue
 			}
 
 			if !utf8.Valid(body.asBytes) {
-				log.Printf("[%s] UTF-8 transcoding failed: still non-UTF-8 after conversion", currentUrl)
+				c.logError("UTF-8 transcoding failed: still non-UTF-8 after conversion", err)
 				continue
 			}
 		}
 
 		page.ResponseBody = string(body.asBytes)
-		checkpoint = "set page.ResponseBody"
+		c.checkpoint = "set page.ResponseBody"
 
 		// TODO: Skip XML pages
 
@@ -303,7 +303,7 @@ func Crawl(
 			strings.NewReader(string(body.asBytes)),
 		)
 		if err != nil {
-			log.Printf("[%s] parse HTML failed: %v", currentUrl, err)
+			c.logError("parse HTML failed", err)
 			continue
 		}
 
@@ -312,10 +312,10 @@ func Crawl(
 		// Postgres will read it as an empty array
 		// Instead of as a NULL value
 		page.Outneighbours = make([]models.Url, 0)
-		page.Outneighbours = append(page.Outneighbours, findHyperlinks(doc, currentUrl)...)
+		page.Outneighbours = append(page.Outneighbours, c.findHyperlinks(doc, c.currentUrl)...)
 		err = database.EnqueueLinks(page.Outneighbours, connection.DB, &database.DatabaseMu)
 		if err != nil {
-			log.Printf("[%s] enqueue failed: %v", currentUrl, err)
+			c.logError("enqueue failed", err)
 			continue
 		}
 
@@ -324,52 +324,46 @@ func Crawl(
 		)
 		isDomainBlacklisted, err = page.Fqdn.IsBlacklisted(connection.DB)
 		if err != nil {
-			log.Printf("[%s] determine domain blacklist status failed: %v", currentUrl, err)
+			c.logError("determine domain blacklist status failed", err)
 			continue
 		}
 		if isDomainBlacklisted {
 			continue
 		}
 
-		page.Title = parsePageTitle(doc)
-		checkpoint = "set page.Title"
+		page.Title = c.parsePageTitle(doc)
+		c.checkpoint = "set page.Title"
 
-		page.Description = parsePageDescription(doc)
-		checkpoint = "set page.Description"
+		page.Description = c.parsePageDescription(doc)
+		c.checkpoint = "set page.Description"
 
-		page.IsFediverseNode, err = isPageOnFediverse(page)
+		page.IsFediverseNode, err = c.isPageOnFediverse(page)
 		if err != nil {
-			log.Printf("[%s] determine fediverse participation status failed: %v", currentUrl, err)
+			c.logError("determine fediverse participation status failed", err)
+			continue
 		}
 
 		err = page.Save(connection.DB)
 		if err != nil {
-			log.Printf("[%s] save to database failed: %v", currentUrl, err)
+			c.logError("save to database failed", err)
 			continue
 		}
 
 		err = page.EnqueueToIndexer(connection.DB, &database.DatabaseMu)
 		if err != nil {
-			log.Printf("[%s] enqueue to indexer failed: %v", currentUrl, err)
+			c.logError("enqueue to indexer failed", err)
 			continue
 		}
 
-		mu.Lock()
-		_ = iterator.Add(1)
+		c.Mu.Lock()
+		_ = c.CrawlIteration.Add(1)
 
-		log.Printf("[%s] (Q=%d, n=%d, l=%d, i=%d) {id=%d}",
-			currentUrl,
-			len(*queues), // number of unique domains queued in memory
-			numberOfCrawlers.Load(),
-			len((*queues)[domain]),
-			iterator.Load(),
-			id,
-		)
-		mu.Unlock()
+		c.logCrawlCompletion()
+		c.Mu.Unlock()
 
 		// log.Println("crawler:       ", crawler_id)
 		// log.Println("iter:          ", *iterator)
-		// log.Println("url:           ", currentUrl)
+		// log.Println("url:           ", c.currentUrl)
 		// log.Println("title:         ", page.Title)
 		// log.Println("desc:          ", page.Description)
 		// log.Println("body:          ", len(page.Text), "bytes long")
@@ -381,44 +375,7 @@ func Crawl(
 	// log.Printf("Killing crawler %d for %s...", id, domain)
 }
 
-func CleanCrawlerQueue(
-	db *sql.DB,
-	mu *sync.Mutex,
-) error {
-	if db == nil {
-		return fmt.Errorf("db is nil")
-	}
-	if mu == nil {
-		return fmt.Errorf("mutex is nil")
-	}
-
-	mu.Lock()
-	result, err := db.Exec(
-		`DELETE FROM crawler_queue cq
-			USING pages p
-			WHERE cq.hyperlink = p.link
-				AND p.date_last_crawled > CURRENT_TIMESTAMP - $1::interval;`,
-		fmt.Sprintf("%d seconds", int(CRAWLER_OLDNESS_THRESHOLD/time.Second)),
-	)
-	mu.Unlock()
-	if err != nil {
-		return fmt.Errorf("execute DELETE FROM crawler_queue failed: %w", err)
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("get rows affected failed: %w", err)
-	}
-
-	mu.Lock()
-	log.Println()
-	log.Printf("Crawler queue purged successfully, eliminating %d links.", rowsAffected)
-	log.Println()
-	mu.Unlock()
-	return nil
-}
-
-func findHyperlinks(
+func (c Crawler) findHyperlinks(
 	root_node *html.Node,
 	root_url models.Url,
 ) []models.Url {
@@ -495,7 +452,31 @@ func findHyperlinks(
 	return hyperlinks
 }
 
-func isPageOnFediverse(
+func (c Crawler) logError(message string, err error) {
+	if err == nil {
+		log.Printf("%s %s", c.runtimeStats(), message)
+		return
+	}
+
+	log.Printf("%s %s: %v", c.runtimeStats(), message, err)
+}
+
+func (c Crawler) logCrawlCompletion() {
+	log.Println(c.runtimeStats())
+}
+
+func (c Crawler) runtimeStats() string {
+	return fmt.Sprintf("(Q=%d, n=%d, l=%d, i=%d) {id=%d} [%s]",
+		len(*c.Queues), // number of unique domains queued in memory
+		c.NumberOfCrawlers.Load(),
+		len((*c.Queues)[c.Fqdn]),
+		c.CrawlIteration.Load(),
+		c.Id,
+		c.currentUrl,
+	)
+}
+
+func (c Crawler) isPageOnFediverse(
 	p models.Webpage,
 ) (
 	bool,
@@ -507,7 +488,7 @@ func isPageOnFediverse(
 	return false, nil
 }
 
-func parsePageDescription(
+func (c Crawler) parsePageDescription(
 	root_node *html.Node,
 ) string {
 	var (
@@ -551,10 +532,11 @@ func parsePageDescription(
 		break
 	}
 
+	c.checkpoint = "set page.Description"
 	return pageDescription
 }
 
-func parsePageTitle(
+func (c Crawler) parsePageTitle(
 	root_node *html.Node,
 ) string {
 	var (
@@ -610,10 +592,59 @@ func parsePageTitle(
 		}
 	}
 
+	c.checkpoint = "set page.Title"
 	return pageTitle
 }
 
-func waitPolitely(basePolitenessInterval time.Duration, degreeOfPoliteness *int) {
-	time.Sleep(basePolitenessInterval)
-	*degreeOfPoliteness += 1
+func (c Crawler) queueLength() int {
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
+
+	return len((*c.Queues)[c.Fqdn])
+}
+
+func (c Crawler) waitPolitely() {
+	time.Sleep(c.politenessInterval)
+
+	c.degreeOfPoliteness += 1
+	c.politenessInterval = time.Duration(
+		float64(CRAWLER_STARTING_POLITENESS_INTERVAL) * math.Exp(float64(c.degreeOfPoliteness)),
+	)
+}
+
+func CleanCrawlerQueue(
+	db *sql.DB,
+	mu *sync.Mutex,
+) error {
+	if db == nil {
+		return fmt.Errorf("db is nil")
+	}
+	if mu == nil {
+		return fmt.Errorf("mutex is nil")
+	}
+
+	mu.Lock()
+	result, err := db.Exec(
+		`DELETE FROM crawler_queue cq
+			USING pages p
+			WHERE cq.hyperlink = p.link
+				AND p.date_last_crawled > CURRENT_TIMESTAMP - $1::interval;`,
+		fmt.Sprintf("%d seconds", int(CRAWLER_OLDNESS_THRESHOLD/time.Second)),
+	)
+	mu.Unlock()
+	if err != nil {
+		return fmt.Errorf("execute DELETE FROM crawler_queue failed: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected failed: %w", err)
+	}
+
+	mu.Lock()
+	log.Println()
+	log.Printf("Crawler queue purged successfully, eliminating %d links.", rowsAffected)
+	log.Println()
+	mu.Unlock()
+	return nil
 }

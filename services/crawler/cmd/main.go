@@ -105,20 +105,21 @@ func main() {
 
 			crawlerId += 1
 
-			crawling.Crawl(
-				&crawlerQueues,
-				fqdn,
-				connection.DB,
-				&crawlerMu,
-				&numberOfCrawlers,
-				&crawlIteration,
-				crawlerId,
-			)
+			crawler := crawling.Crawler{
+				Id:               crawlerId,
+				Queues:           &crawlerQueues,
+				Fqdn:             fqdn,
+				Mu:               &crawlerMu,
+				Db:               connection.DB,
+				NumberOfCrawlers: &numberOfCrawlers,
+				CrawlIteration:   &crawlIteration,
+			}
+
+			crawler.Crawl()
 
 			crawlerMu.Lock()
 			delete(crawlerQueues, fqdn)
 			crawlerMu.Unlock()
-
 		})
 	}
 
