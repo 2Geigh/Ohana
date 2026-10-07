@@ -273,6 +273,11 @@ func TestUrl_StripQueriesAndFragments(t *testing.T) {
 			url:  models.Url("https://example.com#section?foo=bar"),
 			want: models.Url("https://example.com"),
 		},
+		{
+			name: "Case Study 1",
+			url:  models.Url("https://modern.ircdocs.horse/#feature-advertisement"),
+			want: models.Url("https://modern.ircdocs.horse/"),
+		},
 	}
 
 	for _, tt := range tests {

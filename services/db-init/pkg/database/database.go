@@ -37,11 +37,12 @@ func DequeueLinks(
 	db *sql.DB,
 	mu *sync.Mutex,
 ) (
-	[]models.Url,
+	models.Url,
 	error,
 ) {
 	var (
-		queueRows []models.Url
+		id   int64
+		link models.Url
 	)
 
 	mu.Lock()
@@ -49,78 +50,41 @@ func DequeueLinks(
 
 	tx, err := db.Begin()
 	if err != nil {
-		return queueRows, fmt.Errorf("begin transaction failed: %w", err)
+		return link, fmt.Errorf("begin transaction failed: %w", err)
 	}
 	defer tx.Rollback()
 
-	// Get the first contiguous set of links with the same domain
-	// Ex: If the first five rows of the queue
-	//	   are all from google.com, return the
-	//     first five rows.
-	//
-	//	   Otherwise, just return the first row.
+	err = tx.QueryRow(
+		`SELECT id, hyperlink
+		FROM crawler_queue
+		ORDER BY date_added ASC
+		LIMIT 1;`,
+	).Scan(
+		&id,
+		&link,
+	)
+	if err == sql.ErrNoRows {
+		return link, nil
+	}
+	if err != nil {
+		return link, fmt.Errorf("rows: %w", err)
+	}
 
-	rows, err := tx.Query(
-		`WITH first_value AS (
-			SELECT fqdn AS value
-			FROM crawler_queue
-			ORDER BY id
-			LIMIT 1
-		),
-
-		rows_to_dequeue AS MATERIALIZED (
-			SELECT t.id
-			FROM crawler_queue AS t
-			CROSS JOIN first_value AS f
-			WHERE t.fqdn IS NOT DISTINCT FROM f.value
-			ORDER BY t.id
-			LIMIT 1000
-		),
-
-		deleted AS (
-			DELETE FROM crawler_queue AS t
-			USING rows_to_dequeue AS d
-			WHERE t.id = d.id
-			RETURNING t.id, t.hyperlink
-		)
-			
-		SELECT hyperlink
-		FROM deleted
-		ORDER BY id;`,
+	_, err = tx.Exec(
+		`DELETE FROM crawler_queue
+		WHERE id = $1`,
+		id,
 	)
 	if err != nil {
-		return queueRows, fmt.Errorf("tx query failed: %w", err)
-	}
-
-	for rows.Next() {
-		var (
-			hyperlink models.Url
-		)
-
-		err = rows.Scan(&hyperlink)
-		if err != nil {
-			return queueRows, fmt.Errorf("scan row to local variable failed: %w", err)
-		}
-
-		queueRows = append(queueRows, hyperlink)
-	}
-
-	err = rows.Close()
-	if err != nil {
-		return queueRows, fmt.Errorf("close rows failed: %w", err)
-	}
-
-	err = rows.Err()
-	if err != nil {
-		return queueRows, fmt.Errorf("rows: %w", err)
+		return link, fmt.Errorf("DELETE %s (id=%d) FROM crawler_queue failed: %w", link, id, err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return queueRows, fmt.Errorf("commit transaction failed: %w", err)
+		return link, fmt.Errorf("commit transaction failed: %w", err)
 	}
 
-	return queueRows, nil
+	return link, nil
 }
 
 func EnqueueLinks(

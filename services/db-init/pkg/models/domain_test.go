@@ -92,6 +92,11 @@ func TestDomain_GetFQDN(t *testing.T) {
 			input: models.Domain("localhost"),
 			want:  models.Domain("localhost"),
 		},
+		{
+			name:  "Unconventional lower-level domains",
+			input: models.Domain("info.miku.sega.jp"),
+			want:  "sega.jp",
+		},
 	}
 
 	for _, tt := range tests {

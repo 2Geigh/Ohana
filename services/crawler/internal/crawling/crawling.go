@@ -114,22 +114,44 @@ var (
 	}
 )
 
+type Queues map[models.Domain][]models.Url
+
+func (queues Queues) Dequeue(fqdn models.Domain) models.Url {
+
+	if len(queues[fqdn]) < 1 {
+		return models.Url("")
+	}
+
+	toReturn := queues[fqdn][0]
+
+	if len(queues[fqdn]) == 1 {
+		queues[fqdn] = []models.Url{}
+	} else {
+		queues[fqdn] = queues[fqdn][1:]
+	}
+
+	return toReturn
+}
+
 func Crawl(
-	wg *sync.WaitGroup,
+	queues *(Queues),
+	domain models.Domain,
+	db *sql.DB,
+	mu *sync.Mutex,
+	numberOfCrawlers *atomic.Int64,
 	iterator *atomic.Int64,
+	id int64,
 ) {
+	// log.Printf("Starting crawler %d for %s (%d links)...", id, domain, len((*queues)[domain]))
+
 	var (
 		page models.Webpage
-
-		localQueue models.LocalQueue
 
 		// debugging
 		currentUrl models.Url = "void"
 		checkpoint string
 		err        error
 	)
-
-	defer wg.Done()
 
 	defer func() {
 		raisedError := recover()
@@ -143,14 +165,10 @@ func Crawl(
 		}
 	}()
 
-	localQueue.Links, err = database.DequeueLinks(connection.DB, &database.DatabaseMu)
-	if err != nil {
-		log.Printf("dequeue from database's global queue failed: %v", err)
-		return
-	}
-
-	for len(localQueue.Links) > 0 {
-		currentUrl = localQueue.Dequeue()
+	for len((*queues)[domain]) > 0 {
+		mu.Lock()
+		currentUrl = (*queues).Dequeue(domain)
+		mu.Unlock()
 
 		page.
 			Url = currentUrl
@@ -304,15 +322,24 @@ func Crawl(
 			continue
 		}
 
-		log.Printf("[%s] (%d)", currentUrl, iterator.Load())
-
 		err = page.EnqueueToIndexer(connection.DB, &database.DatabaseMu)
 		if err != nil {
 			log.Printf("[%s] enqueue to indexer failed: %v", currentUrl, err)
 			continue
 		}
 
+		mu.Lock()
 		_ = iterator.Add(1)
+
+		log.Printf("[%s] (Q=%d, n=%d, l=%d, i=%d) {id=%d}",
+			currentUrl,
+			len(*queues), // number of unique domains queued in memory
+			numberOfCrawlers.Load(),
+			len((*queues)[domain]),
+			iterator.Load(),
+			id,
+		)
+		mu.Unlock()
 
 		// log.Println("crawler:       ", crawler_id)
 		// log.Println("iter:          ", *iterator)
@@ -324,12 +351,13 @@ func Crawl(
 		// log.Println("response_body: ", len(page.ResponseBody), "bytes long")
 		// log.Println("queue: ", len(queue.Links), "links long")
 	}
+
+	// log.Printf("Killing crawler %d for %s...", id, domain)
 }
 
 func CleanCrawlerQueue(
 	db *sql.DB,
 	mu *sync.Mutex,
-	iteration_counter *atomic.Int64,
 ) error {
 	if db == nil {
 		return fmt.Errorf("db is nil")
@@ -338,36 +366,30 @@ func CleanCrawlerQueue(
 		return fmt.Errorf("mutex is nil")
 	}
 
-	for true {
-		if iteration_counter.Load() < 10 {
-			time.Sleep(6 * time.Second)
-			continue
-		}
-
-		mu.Lock()
-		result, err := db.Exec(
-			`DELETE FROM crawler_queue cq
+	mu.Lock()
+	result, err := db.Exec(
+		`DELETE FROM crawler_queue cq
 			USING pages p
 			WHERE cq.hyperlink = p.link
 				AND p.date_last_crawled > CURRENT_TIMESTAMP - $1::interval;`,
-			fmt.Sprintf("%d seconds", int(CRAWLER_OLDNESS_THRESHOLD/time.Second)),
-		)
-		mu.Unlock()
-		if err != nil {
-			return fmt.Errorf("execute DELETE FROM crawler_queue failed: %w", err)
-		}
-
-		rowsAffected, err := result.RowsAffected()
-		if err != nil {
-			return fmt.Errorf("get rows affected failed: %w", err)
-		}
-
-		log.Printf("Crawler queue purged successfully, eliminating %d links.", rowsAffected)
-
-		_ = iteration_counter.Swap(0)
+		fmt.Sprintf("%d seconds", int(CRAWLER_OLDNESS_THRESHOLD/time.Second)),
+	)
+	mu.Unlock()
+	if err != nil {
+		return fmt.Errorf("execute DELETE FROM crawler_queue failed: %w", err)
 	}
 
-	return fmt.Errorf("Crawler queue cleaner process quit unexpectedly")
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get rows affected failed: %w", err)
+	}
+
+	mu.Lock()
+	log.Println()
+	log.Printf("Crawler queue purged successfully, eliminating %d links.", rowsAffected)
+	log.Println()
+	mu.Unlock()
+	return nil
 }
 
 func findHyperlinks(

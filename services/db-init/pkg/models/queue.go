@@ -3,12 +3,10 @@ package models
 import (
 	"database/sql"
 	"fmt"
-	"sync"
 )
 
 type (
 	LocalQueue struct {
-		Mu    sync.Mutex
 		Links []Url
 	}
 )
@@ -34,9 +32,6 @@ func (q *LocalQueue) Enqueue(
 	urls []Url,
 	db *sql.DB,
 ) error {
-	q.Mu.Lock()
-	defer q.Mu.Unlock()
-
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction failed: %w", err)
