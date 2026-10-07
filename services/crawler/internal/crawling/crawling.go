@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"runtime/debug"
 	"slices"
@@ -25,7 +26,7 @@ import (
 
 const (
 	// How long the crawler waits between requests to the same domain
-	CRAWLER_POLITENESS_INTERVAL time.Duration = 12 * time.Second
+	CRAWLER_STARTING_POLITENESS_INTERVAL time.Duration = 12 * time.Second
 
 	// How long the crawler keeps ignoring a re-encountered page after crawling it
 	CRAWLER_OLDNESS_THRESHOLD time.Duration = 24 * time.Hour //
@@ -112,6 +113,7 @@ var (
 		models.Url("https://imageboards.net/"),
 		models.Url("https://aboutideasnow.com/"),
 		models.Url("https://ytmnd.com"),
+		models.Url("https://ring.fediverse.radio/"),
 	}
 )
 
@@ -146,9 +148,9 @@ func Crawl(
 	// log.Printf("Starting crawler %d for %s (%d links)...", id, domain, len((*queues)[domain]))
 
 	var (
-		page models.Webpage
+		degreeOfPoliteness int = 0
 
-		// debugging
+		// for debugging
 		currentUrl models.Url = "void"
 		checkpoint string
 		err        error
@@ -171,9 +173,20 @@ func Crawl(
 		defer mu.Unlock()
 		return len((*queues)[domain])
 	}() > 0 {
+		var (
+			page models.Webpage
+		)
+
 		mu.Lock()
 		currentUrl = (*queues).Dequeue(domain)
 		mu.Unlock()
+
+		// e ** 3 is ~20
+		// 20 * 12 seconds is ~4 minutes
+		// If we're still getting status code 429 after 4 minutes it's not worth trying the domain
+		if degreeOfPoliteness > 3 {
+			continue
+		}
 
 		page.
 			Url = currentUrl
@@ -185,7 +198,7 @@ func Crawl(
 
 		page.
 			Fqdn = page.FullDomain.GetFQDN()
-		checkpoint = "set page.TopAndSecondLevelDomain"
+		checkpoint = "set page.Fqdn"
 
 		var (
 			isPageTooRecentlyCrawled bool
@@ -204,10 +217,15 @@ func Crawl(
 			continue
 		}
 
+		var (
+			politenessInterval time.Duration = time.Duration(
+				float64(CRAWLER_STARTING_POLITENESS_INTERVAL) * math.Exp(float64(degreeOfPoliteness)),
+			)
+		)
 		hasDomainBeenRequestedTooRecently, err := page.
 			Fqdn.
 			HasBeenRequestedTooRecently(
-				CRAWLER_POLITENESS_INTERVAL,
+				politenessInterval,
 				&database.DatabaseMu,
 				connection.DB)
 		if err != nil {
@@ -216,7 +234,7 @@ func Crawl(
 		}
 
 		if hasDomainBeenRequestedTooRecently {
-			time.Sleep(CRAWLER_POLITENESS_INTERVAL)
+			waitPolitely(politenessInterval, &degreeOfPoliteness)
 		}
 
 		response, err := http.Get(string(currentUrl))
@@ -228,6 +246,9 @@ func Crawl(
 		var (
 			isRequestSuccessful bool = response.StatusCode >= 200 && response.StatusCode < 300
 		)
+		if response.StatusCode == 429 {
+			waitPolitely(politenessInterval, &degreeOfPoliteness)
+		}
 		if !isRequestSuccessful {
 			log.Printf("[%s] %s", currentUrl, response.Status)
 			continue
@@ -590,4 +611,9 @@ func parsePageTitle(
 	}
 
 	return pageTitle
+}
+
+func waitPolitely(basePolitenessInterval time.Duration, degreeOfPoliteness *int) {
+	time.Sleep(basePolitenessInterval)
+	*degreeOfPoliteness += 1
 }
