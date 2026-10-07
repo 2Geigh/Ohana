@@ -1,28 +1,30 @@
 FROM golang:1.27-alpine AS build
-
 WORKDIR /src
 
 COPY go.work go.work.sum ./
 COPY crawler/go.mod crawler/go.sum ./crawler/
 COPY db-init/go.mod db-init/go.sum ./db-init/
-COPY db-init/go.mod db-janitor/go.sum ./db-janitor/
+COPY db-janitor/go.mod db-janitor/go.sum ./db-janitor/
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    cd crawler && go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    cd /src/db-init && go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    cd /src/db-janitor && go mod download
 
 COPY crawler ./crawler
 COPY db-init ./db-init
 COPY db-janitor ./db-janitor
 
 WORKDIR /src/crawler
+RUN mkdir -p /out
 
-RUN go test ./...
-
-RUN CGO_ENABLED=0 GOOS=linux \
-    go build -o /out/main.out ./cmd/main.go
-
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -o /out/main.out ./cmd/main.go
 
 FROM alpine:3 AS dist
-
 WORKDIR /app
-
-COPY --from=build /out/main.out /app/main.out
-
+COPY --from=build /out/main.out ./main.out
 CMD ["/app/main.out"]
