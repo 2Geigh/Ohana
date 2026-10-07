@@ -6584,5 +6584,19 @@
 	{ "domain": "mozilla.org" },
 	{ "domain": "telegram.org" },
 	{ "domain": "telegram.me" },
-	{ "domain": "t.me" }
+	{ "domain": "t.me" },
+	{ "domain": "mdiaload.com" },
+	{ "domain": "ko-fi.com" },
+	{ "domain": "buymeacoffee.com" },
+	{ "domain": "patreon.com" },
+	{ "domain": "huggingface.co" },
+	{ "domain": "mac.com" },
+	{ "domain": "amzn.asia" },
+	{ "domain": "bookwalker.jp" },
+	{ "domain": "forms.gl" },
+	{ "domain": "forms.gle" },
+	{ "domain": "proton.me" },
+	{ "domain": "protonvpn.com" },
+	{ "domain": "tv.google" },
+	{ "domian": "chromium.org" }
 ]
