@@ -226,6 +226,7 @@ func (c Crawler) Crawl() {
 			}{
 				asReadCloser: response.Body,
 			},
+			contentType:          response.Header.Get("Content-Type"),
 			statusCode:           response.StatusCode,
 			statusMessage:        response.Status,
 			wasRequestSuccessful: response.StatusCode >= 200 && response.StatusCode < 300,
@@ -275,10 +276,13 @@ func (c Crawler) Crawl() {
 			}
 		}
 
+		if !c.recievedResponse.isReadableText() {
+			c.logError("page content isn't text-based", nil)
+			continue
+		}
+
 		c.currentPage.ResponseBody = string(c.recievedResponse.body.asBytes)
 		c.checkpoint = "set page.ResponseBody"
-
-		// TODO: Skip XML pages
 
 		doc, err := html.Parse(
 			strings.NewReader(string(c.recievedResponse.body.asBytes)),
@@ -620,6 +624,22 @@ type recievedResponse struct {
 	statusCode           int
 	statusMessage        string
 	wasRequestSuccessful bool
+	contentType          string
+}
+
+func (r recievedResponse) isReadableText() bool {
+	readableTextTypes := []string{
+		"text/html",
+		"text/text",
+	}
+
+	for _, contentType := range readableTextTypes {
+		if strings.Contains(r.contentType, contentType) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func CleanCrawlerQueue(
