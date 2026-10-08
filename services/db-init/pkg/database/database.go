@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
@@ -206,6 +207,10 @@ func InitializeDomainBlacklist(
 	tx.Exec(`DELETE FROM domain_blacklist *;`)
 
 	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) == "" {
+			continue
+		}
+
 		stmt, err := tx.Prepare(
 			`INSERT INTO domain_blacklist (domain) values ($1);`,
 		)

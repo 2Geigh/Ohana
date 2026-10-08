@@ -577,14 +577,14 @@ func (c Crawler) queueLength() int {
 }
 
 func (c Crawler) runtimeStats() string {
-	return fmt.Sprintf("(Q=%d, n=%d, l=%d, i=%d) {id=%d} [【%s】%s]",
+	return fmt.Sprintf("(Q=%d, n=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
 		len(*c.Queues), // number of unique domains queued in memory
 		c.NumberOfCrawlers.Load(),
 		len((*c.Queues)[c.Fqdn]),
 		c.CrawlIteration.Load(),
 		c.Id,
 		c.currentPage.Fqdn,
-		c.currentUrl,
+		c.currentPage.Url,
 	)
 }
 
