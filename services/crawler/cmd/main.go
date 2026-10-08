@@ -109,8 +109,9 @@ func main() {
 				Id:               crawlerId,
 				Queues:           &crawlerQueues,
 				Fqdn:             fqdn,
-				Mu:               &crawlerMu,
+				CrawlerMu:        &crawlerMu,
 				Db:               connection.DB,
+				DbMu:             &database.DatabaseMu,
 				NumberOfCrawlers: &numberOfCrawlers,
 				CrawlIteration:   &crawlIteration,
 			}

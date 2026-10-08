@@ -3,7 +3,6 @@ package models
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -115,10 +114,6 @@ func (d Domain) IsBlacklisted(
 	).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("query failed: %w", err)
-	}
-
-	if exists {
-		log.Println(fqdn, "blacklisted as", topLevelDomain)
 	}
 
 	return exists, nil

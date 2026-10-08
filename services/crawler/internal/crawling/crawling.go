@@ -121,8 +121,9 @@ type Crawler struct {
 	Id               int64
 	Queues           *Queues
 	Fqdn             models.Domain
-	Mu               *sync.Mutex
+	CrawlerMu        *sync.Mutex
 	Db               *sql.DB
+	DbMu             *sync.Mutex
 	NumberOfCrawlers *atomic.Int64
 	CrawlIteration   *atomic.Int64
 
@@ -164,9 +165,9 @@ func (c Crawler) Crawl() {
 		c.currentPage = models.Webpage{}
 		c.recievedResponse = recievedResponse{}
 
-		c.Mu.Lock()
+		c.CrawlerMu.Lock()
 		c.currentUrl = (*c.Queues).Dequeue(c.Fqdn)
-		c.Mu.Unlock()
+		c.CrawlerMu.Unlock()
 
 		// e ** 3 is ~20
 		// 20 * 12 seconds is ~4 minutes
@@ -338,11 +339,11 @@ func (c Crawler) Crawl() {
 			continue
 		}
 
-		c.Mu.Lock()
+		c.CrawlerMu.Lock()
 		_ = c.CrawlIteration.Add(1)
 
 		c.logCrawlCompletion()
-		c.Mu.Unlock()
+		c.CrawlerMu.Unlock()
 
 		// log.Println("crawler:       ", crawler_id)
 		// log.Println("iter:          ", *iterator)
@@ -427,6 +428,17 @@ func (c Crawler) findHyperlinks(
 			// log.Println("newfoundLink", newfoundLink)
 			// log.Println("isAlternativeUriScheme", isAlternativeUriScheme)
 			// log.Printf("[%s] Found: %v", root_url, newfoundLink)
+
+			isBlacklisted, err := newfoundLink.GetDomain().IsBlacklisted(c.Db, c.DbMu)
+			if err != nil {
+				log.Println("determine blacklist status of newfound link %s failed: %w", newfoundLink, err)
+				continue
+			}
+
+			if isBlacklisted {
+				continue
+			}
+
 			hyperlinks = append(hyperlinks, newfoundLink.TrimTrailingSlash())
 			break
 		}
@@ -570,8 +582,8 @@ func (c Crawler) parsePageTitle(
 }
 
 func (c Crawler) queueLength() int {
-	c.Mu.Lock()
-	defer c.Mu.Unlock()
+	c.CrawlerMu.Lock()
+	defer c.CrawlerMu.Unlock()
 
 	return len((*c.Queues)[c.Fqdn])
 }
