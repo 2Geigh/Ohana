@@ -12,6 +12,7 @@
 *.aetna
 *.afl
 *.agakhan
+*.ai
 *.aig
 *.aigo
 *.airbus
