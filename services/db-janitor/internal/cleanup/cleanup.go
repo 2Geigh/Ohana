@@ -23,17 +23,21 @@ func PurgeDatabase(
 	}
 	defer tx.Rollback()
 
-	result, err := tx.Exec(`
-		DELETE FROM sites
-		WHERE fqdn IN (
-			SELECT domain
-			FROM domain_blacklist
-		);
-	`)
+	result, err := tx.Exec(
+		`DELETE FROM sites AS s
+		WHERE EXISTS (
+			SELECT 1
+			FROM domain_blacklist AS b
+			WHERE s.fqdn = b.domain
+			OR (
+				b.domain LIKE '*.%'
+				AND right(s.fqdn, length(substr(b.domain, 2))) = substr(b.domain, 2)
+			)
+		);`,
+	)
 	if err != nil {
 		return fmt.Errorf("delete blacklisted sites failed: %w", err)
 	}
-
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("get number of deleted sites failed: %w", err)
@@ -45,7 +49,7 @@ func PurgeDatabase(
 	}
 
 	log.Printf(
-		"Successfully completed database purge of sites and pages from blacklisted domains, directly affecting %d rows",
+		"Successfully completed database purge of %d sites and their corresponding pages from blacklisted domains",
 		rowsAffected,
 	)
 

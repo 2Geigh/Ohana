@@ -90,13 +90,13 @@ func (d Domain) HasBeenRequestedTooRecently(
 
 func (d Domain) IsBlacklisted(
 	db *sql.DB,
+	dbMu *sync.Mutex,
 ) (
 	bool,
 	error,
 ) {
 	var (
-		fqdn = d.GetFQDN()
-
+		fqdn   = d.GetFQDN()
 		exists bool
 	)
 
@@ -104,7 +104,23 @@ func (d Domain) IsBlacklisted(
 		`SELECT EXISTS (SELECT 1 FROM domain_blacklist WHERE domain = $1);`,
 		fqdn,
 	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("query failed: %w", err)
+	}
 
+	if exists {
+		return true, nil
+	}
+
+	var (
+		domainLevels   []string = strings.Split(string(fqdn), ".")
+		topLevelDomain          = "*." + domainLevels[len(domainLevels)-1]
+	)
+
+	err = db.QueryRow(
+		`SELECT EXISTS (SELECT 1 FROM domain_blacklist WHERE domain = $1);`,
+		topLevelDomain,
+	).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("query failed: %w", err)
 	}

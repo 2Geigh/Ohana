@@ -184,7 +184,7 @@ func (c Crawler) Crawl() {
 		c.currentPage.Fqdn = c.currentPage.FullDomain.GetFQDN()
 		c.checkpoint = "set page.Fqdn"
 
-		c.currentPage.IsDomainBlacklisted, err = c.currentPage.Fqdn.IsBlacklisted(connection.DB)
+		c.currentPage.IsDomainBlacklisted, err = c.currentPage.Fqdn.IsBlacklisted(connection.DB, &database.DatabaseMu)
 		if err != nil {
 			c.logError("determine domain blacklist status failed", err)
 			continue

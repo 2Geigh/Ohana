@@ -1,9 +1,9 @@
 package database
 
 import (
+	"bufio"
 	"database/sql"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -29,7 +29,7 @@ var (
 	//go:embed migrations/*.sql
 	embedMigrations embed.FS
 
-	//go:embed data/*.json
+	//go:embed data/*.txt
 	embedData embed.FS
 )
 
@@ -106,7 +106,7 @@ func EnqueueLinks(
 			isBlacklisted bool
 		)
 
-		isBlacklisted, err = url.GetDomain().IsBlacklisted(db)
+		isBlacklisted, err = url.GetDomain().IsBlacklisted(db, &DatabaseMu)
 		if err != nil {
 			return fmt.Errorf("determine url blacklist status failed: %w", err)
 		}
@@ -184,26 +184,18 @@ func InitializeDomainBlacklist(
 	mu *sync.Mutex,
 ) error {
 	var (
-		topThousandDomains = struct {
-			asBytes  []byte
-			asString string
-			asJson   []RankedDomain
-		}{}
-
 		err error
 	)
 	mu.Lock()
 	defer mu.Unlock()
 
-	topThousandDomains.asBytes, err = embedData.ReadFile("data/ranked_domains.json")
+	file, err := embedData.Open("data/domain_blacklist.txt")
 	if err != nil {
 		return fmt.Errorf("read file failed: %w", err)
 	}
+	defer file.Close()
 
-	err = json.Unmarshal(topThousandDomains.asBytes, &topThousandDomains.asJson)
-	if err != nil {
-		return fmt.Errorf("unmarshal json failed: %w", err)
-	}
+	scanner := bufio.NewScanner(file)
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -213,7 +205,7 @@ func InitializeDomainBlacklist(
 
 	tx.Exec(`DELETE FROM domain_blacklist *;`)
 
-	for _, entry := range topThousandDomains.asJson {
+	for scanner.Scan() {
 		stmt, err := tx.Prepare(
 			`INSERT INTO domain_blacklist (domain) values ($1);`,
 		)
@@ -221,11 +213,16 @@ func InitializeDomainBlacklist(
 			return fmt.Errorf("prepare stmt failed: %w", err)
 		}
 
-		_, err = stmt.Exec(entry.Domain)
+		_, err = stmt.Exec(scanner.Text())
 		if err != nil {
 			return fmt.Errorf("execute stmt failed: %w", err)
 		}
 		stmt.Close()
+	}
+
+	err = scanner.Err()
+	if err != nil {
+		return fmt.Errorf("scanner error: %w", err)
 	}
 
 	err = tx.Commit()
