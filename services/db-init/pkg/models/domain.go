@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -96,33 +97,28 @@ func (d Domain) IsBlacklisted(
 	error,
 ) {
 	var (
-		fqdn   = d.GetFQDN()
-		exists bool
+		fqdn                    = d.GetFQDN()
+		domainLevels   []string = strings.Split(string(fqdn), ".")
+		topLevelDomain          = "*." + domainLevels[len(domainLevels)-1]
+		exists         bool
 	)
 
 	err := db.QueryRow(
-		`SELECT EXISTS (SELECT 1 FROM domain_blacklist WHERE domain = $1);`,
+		`SELECT EXISTS (
+			SELECT 1
+			FROM domain_blacklist
+			WHERE domain = $1
+				OR domain_blacklist.domain = $2
+		);`,
 		fqdn,
+		topLevelDomain,
 	).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("query failed: %w", err)
 	}
 
 	if exists {
-		return true, nil
-	}
-
-	var (
-		domainLevels   []string = strings.Split(string(fqdn), ".")
-		topLevelDomain          = "*." + domainLevels[len(domainLevels)-1]
-	)
-
-	err = db.QueryRow(
-		`SELECT EXISTS (SELECT 1 FROM domain_blacklist WHERE domain = $1);`,
-		topLevelDomain,
-	).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("query failed: %w", err)
+		log.Println(fqdn, "blacklisted as", topLevelDomain)
 	}
 
 	return exists, nil

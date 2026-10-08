@@ -24,14 +24,14 @@ func PurgeDatabase(
 	defer tx.Rollback()
 
 	result, err := tx.Exec(
-		`DELETE FROM sites AS s
+		`DELETE FROM sites
 		WHERE EXISTS (
 			SELECT 1
-			FROM domain_blacklist AS b
-			WHERE s.fqdn = b.domain
+			FROM domain_blacklist
+			WHERE sites.fqdn = domain_blacklist.domain
 			OR (
-				b.domain LIKE '*.%'
-				AND right(s.fqdn, length(substr(b.domain, 2))) = substr(b.domain, 2)
+				domain_blacklist.domain LIKE '*.%'
+				AND right(sites.fqdn, length(substr(domain_blacklist.domain, 2))) = substr(domain_blacklist.domain, 2)
 			)
 		);`,
 	)
