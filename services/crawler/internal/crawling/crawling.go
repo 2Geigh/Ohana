@@ -184,6 +184,16 @@ func (c Crawler) Crawl() {
 		c.currentPage.Fqdn = c.currentPage.FullDomain.GetFQDN()
 		c.checkpoint = "set page.Fqdn"
 
+		c.currentPage.IsDomainBlacklisted, err = c.currentPage.Fqdn.IsBlacklisted(connection.DB)
+		if err != nil {
+			c.logError("determine domain blacklist status failed", err)
+			continue
+		}
+		if c.currentPage.IsDomainBlacklisted {
+			c.logError("domain blacklisted", err)
+			continue
+		}
+
 		c.currentPage.IsTooRecentlyCrawled, err = c.currentPage.
 			Url.IsTooRecentlyCrawled(
 			connection.DB,
@@ -301,15 +311,6 @@ func (c Crawler) Crawl() {
 		err = database.EnqueueLinks(c.currentPage.Outneighbours, connection.DB, &database.DatabaseMu)
 		if err != nil {
 			c.logError("enqueue failed", err)
-			continue
-		}
-
-		c.currentPage.IsDomainBlacklisted, err = c.currentPage.Fqdn.IsBlacklisted(connection.DB)
-		if err != nil {
-			c.logError("determine domain blacklist status failed", err)
-			continue
-		}
-		if c.currentPage.IsDomainBlacklisted {
 			continue
 		}
 
@@ -576,12 +577,13 @@ func (c Crawler) queueLength() int {
 }
 
 func (c Crawler) runtimeStats() string {
-	return fmt.Sprintf("(Q=%d, n=%d, l=%d, i=%d) {id=%d} [%s]",
+	return fmt.Sprintf("(Q=%d, n=%d, l=%d, i=%d) {id=%d} [【%s】%s]",
 		len(*c.Queues), // number of unique domains queued in memory
 		c.NumberOfCrawlers.Load(),
 		len((*c.Queues)[c.Fqdn]),
 		c.CrawlIteration.Load(),
 		c.Id,
+		c.currentPage.Fqdn,
 		c.currentUrl,
 	)
 }

@@ -95,7 +95,12 @@ func TestDomain_GetFQDN(t *testing.T) {
 		{
 			name:  "Unconventional lower-level domains",
 			input: models.Domain("info.miku.sega.jp"),
-			want:  "sega.jp",
+			want:  models.Domain("sega.jp"),
+		},
+		{
+			name:  "Case study 1",
+			input: models.Domain(`firefox.com&utm_medium=referral&utm_campaign=nav&utm_content=resources%252F`),
+			want:  models.Domain("firefox.com"),
 		},
 	}
 

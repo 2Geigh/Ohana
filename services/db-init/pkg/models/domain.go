@@ -30,8 +30,17 @@ func (d Domain) GetFQDN() Domain {
 
 	domainWithoutRoutes, _, _ := strings.Cut(string(domainWithoutProtocol), "/")
 
+	var (
+		domainWithoutAmpersand string
+		domainWithoutPercent   string
+	)
+	for range 2 {
+		domainWithoutAmpersand, _, _ = strings.Cut(domainWithoutRoutes, "&")
+		domainWithoutPercent, _, _ = strings.Cut(domainWithoutAmpersand, "%")
+	}
+
 	parser := parser.NewDomainParser()
-	return Domain(parser.GetFQDN(string(domainWithoutRoutes)))
+	return Domain(parser.GetFQDN(string(domainWithoutPercent)))
 }
 
 func (d Domain) HasBeenRequestedTooRecently(
