@@ -13,19 +13,13 @@ func init() {
 		log.Fatalf("connect to database failed: %v", err)
 	}
 
-	err = database.Migrate(connection.DB)
-	if err != nil {
-		log.Fatalf("database migration(s) failed: %v", err)
-	}
 }
 
 func main() {
 	defer connection.DB.Close()
 
-	err := database.RefreshDatabaseDomainBlacklist(
-		connection.DB,
-	)
+	err := database.Migrate(connection.DB)
 	if err != nil {
-		log.Fatalf("refresh domain blacklist failed: %v", err)
+		log.Fatalf("database migration(s) failed: %v", err)
 	}
 }

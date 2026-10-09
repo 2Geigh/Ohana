@@ -34,8 +34,11 @@ const (
 
 var (
 	SeedURLs = []models.Url{
-		models.Url("https://download.mozilla.org/?product=firefox-stub&os=win&lang=en-US"),
-		models.Url("http://nicholasgarcia.com"),
+		models.Url("https://pornhub.com"), // test pornographic blacklisted domains
+		models.Url("https://google.com"),  // test non-pornographic blacklsited domains
+		models.Url("https://download.mozilla.org/?product=firefox-stub&os=win&lang=en-US"), // test non-"text/html" responses
+		models.Url("http://nicholasgarcia.com"),                                            // test non-HTTPS links
+
 		models.Url("https://nicholasgarcia.com"),
 		models.Url("https://angeldolly.com/"),
 		models.Url("https://nyscyra.net/"),
@@ -139,8 +142,6 @@ type Crawler struct {
 }
 
 func (c Crawler) Crawl() {
-	// log.Printf("Starting crawler %d for %s (%d links)...", id, domain, len((*queues)[domain]))
-
 	var (
 		err error
 	)
@@ -346,19 +347,7 @@ func (c Crawler) Crawl() {
 
 		c.logCrawlCompletion()
 		c.CrawlerMu.Unlock()
-
-		// log.Println("crawler:       ", crawler_id)
-		// log.Println("iter:          ", *iterator)
-		// log.Println("url:           ", c.currentUrl)
-		// log.Println("title:         ", page.Title)
-		// log.Println("desc:          ", page.Description)
-		// log.Println("body:          ", len(page.Text), "bytes long")
-		// log.Println("outneighbours: ", len(page.Outneighbours))
-		// log.Println("response_body: ", len(page.ResponseBody), "bytes long")
-		// log.Println("queue: ", len(queue.Links), "links long")
 	}
-
-	// log.Printf("Killing crawler %d for %s...", id, domain)
 }
 
 func (c Crawler) findHyperlinks(
@@ -433,7 +422,7 @@ func (c Crawler) findHyperlinks(
 
 			isBlacklisted, err := newfoundLink.GetDomain().IsBlacklisted(c.Db, c.DbMu)
 			if err != nil {
-				log.Println("determine blacklist status of newfound link %s failed: %w", newfoundLink, err)
+				log.Printf("determine blacklist status of newfound link %s failed: %w", newfoundLink, err)
 				continue
 			}
 
