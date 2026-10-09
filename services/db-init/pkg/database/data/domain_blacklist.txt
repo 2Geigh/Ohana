@@ -7,7 +7,10 @@
 *.abbvie
 *.abc
 *.accenture
+*.accountant
+*.accountants
 *.aco
+*.ads
 *.aeg
 *.aetna
 *.afl
@@ -30,6 +33,7 @@
 *.americanexpress
 *.amex
 *.amica
+*.analytics
 *.android
 *.anon
 *.anz
@@ -47,8 +51,10 @@
 *.azure
 *.baidu
 *.bananarepublic
+*.bank
 *.barclaycard
 *.barclays
+*.barefoot
 *.basketball
 *.bauhaus
 *.bbc
@@ -61,6 +67,7 @@
 *.bing
 *.bit
 *.blanco
+*.blockbuster
 *.bloomberg
 *.bms
 *.bmw
@@ -74,15 +81,20 @@
 *.bradesco
 *.brave
 *.bridgestone
+*.broadway
 *.brother
 *.btn
 *.bugatti
+*.business
+*.buy
 *.cal
+*.call
 *.calvinklein
 *.canon
 *.capitalone
 *.caravan
 *.cartier
+*.case
 *.catholic
 *.cba
 *.cbn
@@ -105,6 +117,7 @@
 *.commbank
 *.conf
 *.corp
+*.coupon
 *.creditunion
 *.crown
 *.crs
@@ -113,6 +126,7 @@
 *.cuisinella
 *.dabur
 *.datsun
+*.deal
 *.dealer
 *.dell
 *.deloitte
@@ -122,6 +136,7 @@
 *.dish
 *.dnp
 *.dodge
+*.drive
 *.dunlop
 *.dupont
 *.dvag
@@ -131,6 +146,7 @@
 *.epson
 *.ericsson
 *.erni
+*.esq
 *.esurance
 *.eth
 *.etisalat
@@ -141,11 +157,13 @@
 *.fage
 *.fairwinds
 *.farmers
+*.fast
 *.fedex
 *.ferrari
 *.ferrero
 *.fiat
 *.fidelity
+*.fire
 *.firestone
 *.firmdale
 *.flickr
@@ -177,8 +195,10 @@
 *.google
 *.gov
 *.grainger
+*.grocery
 *.guardian
 *.gucci
+*.hangout
 *.hbo
 *.hdfc
 *.hdfcbank
@@ -191,6 +211,7 @@
 *.homesense
 *.honda
 *.honeywell
+*.hotels
 *.hotmail
 *.hsbc
 *.hughes
@@ -204,6 +225,7 @@
 *.imdb
 *.index
 *.infiniti
+*.insurance
 *.int
 *.intel
 *.internal
@@ -232,6 +254,7 @@
 *.kindle
 *.komatsu
 *.kpmg
+*.kpn
 *.kred
 *.kuokgroup
 *.lacaixa
@@ -250,6 +273,7 @@
 *.lexus
 *.liaison
 *.lidl
+*.lifeinsurance
 *.lifestyle
 *.lilly
 *.lincoln
@@ -299,6 +323,7 @@
 *.netflix
 *.neustar
 *.newholland
+*.nexus
 *.nfl
 *.nhk
 *.nico
@@ -333,6 +358,7 @@
 *.pohl
 *.politie
 *.praxi
+*.prime
 *.private
 *.prod
 *.progressive
@@ -381,9 +407,11 @@
 *.shaw
 *.shell
 *.shriram
+*.silk
 *.sina
 *.sky
 *.skype
+*.sling
 *.smart
 *.sncf
 *.softbank
@@ -717,6 +745,7 @@ cnn.com
 cnnbrasil.com.br
 cnrtl.fr
 cntraveler.com
+codeberg.org
 coinbase.com
 coindesk.com
 collider.com
@@ -1124,6 +1153,7 @@ google.vu
 google.ws
 googleblog.com
 googlesource.com
+googleusercontent.com
 gosupps.com
 gotquestions.org
 gov.uk

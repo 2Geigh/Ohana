@@ -114,6 +114,8 @@ var (
 		models.Url("https://aboutideasnow.com/"),
 		models.Url("https://ytmnd.com"),
 		models.Url("https://ring.fediverse.radio/"),
+		models.Url("https://pages.gay/"),
+		models.Url("https://whyarentyou.gay/"),
 	}
 )
 
