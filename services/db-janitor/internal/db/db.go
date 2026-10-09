@@ -21,20 +21,38 @@ var (
 	embedData embed.FS
 )
 
-// Delete all sites in the database that are of blacklisted domains
-func PurgeDatabase(
-	db *sql.DB,
-	mu *sync.Mutex,
-) error {
-	mu.Lock()
-	defer mu.Unlock()
-
+func CleanupDatabase(db *sql.DB) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("begin tx failed: %w", err)
 	}
 	defer tx.Rollback()
 
+	log.Println("Refreshing domain blacklist...")
+
+	err = refreshDatabaseDomainBlacklist(tx)
+	if err != nil {
+		log.Fatalf("refresh domain blacklist failed: %v", err)
+	}
+
+	log.Println("Successfully completed domain blacklist refresh")
+	log.Println("Commencing database purge...")
+
+	err = purgeDatabase(tx)
+	if err != nil {
+		return fmt.Errorf("Purge sites and pages from blacklisted domains failed: %v", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("commit tx failed: %w", err)
+	}
+
+	return nil
+}
+
+// Delete all sites in the database that are of blacklisted domains
+func purgeDatabase(tx *sql.Tx) error {
 	result, err := tx.Exec(
 		`DELETE FROM sites
 		WHERE EXISTS (
@@ -55,32 +73,18 @@ func PurgeDatabase(
 		return fmt.Errorf("get number of deleted sites failed: %w", err)
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("commit tx failed: %w", err)
-	}
-
 	log.Printf(
 		"Successfully completed database purge of %d sites and their corresponding pages from blacklisted domains",
 		rowsAffected,
 	)
-
 	return nil
 }
 
-func RefreshDatabaseDomainBlacklist(
-	db *sql.DB,
-) error {
+func refreshDatabaseDomainBlacklist(tx *sql.Tx) error {
 	var (
 		wg  sync.WaitGroup
 		err error
 	)
-
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("begin tx failed: %w", err)
-	}
-	defer tx.Rollback()
 
 	tx.Exec(`DELETE FROM domain_blacklist *;`)
 
@@ -103,24 +107,11 @@ func RefreshDatabaseDomainBlacklist(
 		return err
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("commit tx failed: %w", err)
-	}
-
 	log.Println("Domain blacklist completed successfully")
 	return nil
 }
 
-func ReportDatabaseHealth(db *sql.DB) {
-	stats := db.Stats()
-	log.Printf(`[DB STATS] InUse: %d | Idle: %d | Open: %d | WaitCount: %d`,
-		stats.InUse, stats.Idle, stats.OpenConnections, stats.WaitCount)
-}
-
-func refreshLocalDomainBlacklist(
-	tx *sql.Tx,
-) error {
+func refreshLocalDomainBlacklist(tx *sql.Tx) error {
 	log.Println("Starting refresh of local domain blacklist!")
 
 	log.Println("Opening domain_blacklist.txt ...")
@@ -165,9 +156,7 @@ func refreshLocalDomainBlacklist(
 	return nil
 }
 
-func refreshPornographicDomains(
-	tx *sql.Tx,
-) error {
+func refreshPornographicDomains(tx *sql.Tx) error {
 	log.Println("Starting refresh of remote pornographic domain blacklist!")
 
 	const (

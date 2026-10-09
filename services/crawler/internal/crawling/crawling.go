@@ -40,6 +40,7 @@ var (
 		models.Url("http://nicholasgarcia.com"),                                            // test non-HTTPS links
 
 		models.Url("https://nicholasgarcia.com"),
+		models.Url("https://foreverliketh.is/"),
 		models.Url("https://angeldolly.com/"),
 		models.Url("https://nyscyra.net/"),
 		models.Url("https://0xffff.one"),
@@ -422,7 +423,7 @@ func (c Crawler) findHyperlinks(
 
 			isBlacklisted, err := newfoundLink.GetDomain().IsBlacklisted(c.Db, c.DbMu)
 			if err != nil {
-				log.Printf("determine blacklist status of newfound link %s failed: %w", newfoundLink, err)
+				log.Printf("determine blacklist status of newfound link %s failed: %v", newfoundLink, err)
 				continue
 			}
 
