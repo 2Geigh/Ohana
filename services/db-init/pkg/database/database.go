@@ -189,7 +189,7 @@ func refreshPornographicDomains(
 
 	const (
 		// Source repository: https://github.com/Bon-Appetit/porn-domains
-		pornDomainListUrl string = "https://raw.githubusercontent.com/Bon-Appetit/porn-domains/refs/heads/main/block.7e8ffd67d6.d3adb6.txt"
+		pornDomainListUrl string = "https://test@raw.githubusercontent.com/Bon-Appetit/porn-domains/refs/heads/main/block.570f9ed0d2.dd0b4e.txt"
 	)
 
 	pornDomainList := struct {
@@ -214,33 +214,34 @@ func refreshPornographicDomains(
 		return fmt.Errorf("read GET response failed: %w", err)
 	}
 	defer resp.Body.Close()
-	log.Println("Read remote pornographic domain blacklist")
+	log.Println("Finished reading remote pornographic domain blacklist")
 
 	pornDomainList.asText = string(pornDomainList.asBytes)
+
+	stmt, err := tx.Prepare(
+		`INSERT INTO domain_blacklist (domain) VALUES ($1);`,
+	)
+	if err != nil {
+		return fmt.Errorf("prepare stmt failed: %w", err)
+	}
+	defer stmt.Close()
 
 	scanner := bufio.NewScanner(strings.NewReader(pornDomainList.asText))
 
 	log.Println("Scanning acquired pornographic domain blacklist...")
 	for scanner.Scan() {
-		var domain string = string(scanner.Text())
-		log.Println("Preparing statement for", domain, "...")
+		var (
+			domain string = strings.TrimSpace(string(scanner.Text()))
+		)
 
 		if strings.TrimSpace(domain) == "" {
 			continue
 		}
 
-		stmt, err := tx.Prepare(
-			`INSERT INTO domain_blacklist (domain) values ($1);`,
-		)
-		if err != nil {
-			return fmt.Errorf("prepare stmt failed: %w", err)
-		}
-
 		_, err = stmt.Exec(domain)
 		if err != nil {
-			return fmt.Errorf("execute stmt failed: %w", err)
+			return fmt.Errorf("execute stmt with %s failed: %w", domain, err)
 		}
-		stmt.Close()
 	}
 	err = scanner.Err()
 	if err != nil {
@@ -266,25 +267,25 @@ func refreshLocalDomainBlacklist(tx *sql.Tx) error {
 	scanner := bufio.NewScanner(file)
 	log.Println("Created scanner of domain_blacklist.txt")
 
+	stmt, err := tx.Prepare(
+		`INSERT INTO domain_blacklist (domain) values ($1);`,
+	)
+	if err != nil {
+		return fmt.Errorf("prepare stmt failed: %w", err)
+	}
+	defer stmt.Close()
+
 	log.Println("Scanning domain_blacklist.txt ...")
 	for scanner.Scan() {
-		log.Println("Preparing statement for", scanner.Text(), "...")
+		// log.Println("Preparing statement for", scanner.Text(), "...")
 		if strings.TrimSpace(scanner.Text()) == "" {
 			continue
-		}
-
-		stmt, err := tx.Prepare(
-			`INSERT INTO domain_blacklist (domain) values ($1);`,
-		)
-		if err != nil {
-			return fmt.Errorf("prepare stmt failed: %w", err)
 		}
 
 		_, err = stmt.Exec(scanner.Text())
 		if err != nil {
 			return fmt.Errorf("execute stmt failed: %w", err)
 		}
-		stmt.Close()
 	}
 	log.Println("Finished scanning domain_blacklist.txt")
 
@@ -298,15 +299,11 @@ func refreshLocalDomainBlacklist(tx *sql.Tx) error {
 
 func RefreshDatabaseDomainBlacklist(
 	db *sql.DB,
-	mu *sync.Mutex,
 ) error {
 	var (
 		wg  sync.WaitGroup
 		err error
 	)
-
-	// mu.Lock()
-	// defer mu.Unlock()
 
 	tx, err := db.Begin()
 	if err != nil {

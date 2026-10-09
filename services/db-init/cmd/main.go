@@ -24,7 +24,6 @@ func main() {
 
 	err := database.RefreshDatabaseDomainBlacklist(
 		connection.DB,
-		&database.DatabaseMu,
 	)
 	if err != nil {
 		log.Fatalf("refresh domain blacklist failed: %v", err)
