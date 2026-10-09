@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -180,33 +182,93 @@ func InitializeDB(
 	return nil
 }
 
-func InitializeDomainBlacklist(
-	db *sql.DB,
-	mu *sync.Mutex,
+func refreshPornographicDomains(
+	tx *sql.Tx,
 ) error {
-	var (
-		err error
-	)
-	mu.Lock()
-	defer mu.Unlock()
+	log.Println("Starting refresh of remote pornographic domain blacklist!")
 
+	const (
+		// Source repository: https://github.com/Bon-Appetit/porn-domains
+		pornDomainListUrl string = "https://raw.githubusercontent.com/Bon-Appetit/porn-domains/refs/heads/main/block.7e8ffd67d6.d3adb6.txt"
+	)
+
+	pornDomainList := struct {
+		asBytes []byte
+		asText  string
+	}{}
+
+	log.Println("GETting remote pornographic domain blacklist...")
+	resp, err := http.Get(pornDomainListUrl)
+	if err != nil {
+		return fmt.Errorf("GET porn domain list failed: %w", err)
+	}
+	log.Println("GET remote pornographic domain blacklist complete")
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s", resp.Status)
+	}
+
+	log.Println("Reading remote pornographic domain blacklist...")
+	pornDomainList.asBytes, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read GET response failed: %w", err)
+	}
+	defer resp.Body.Close()
+	log.Println("Read remote pornographic domain blacklist")
+
+	pornDomainList.asText = string(pornDomainList.asBytes)
+
+	scanner := bufio.NewScanner(strings.NewReader(pornDomainList.asText))
+
+	log.Println("Scanning acquired pornographic domain blacklist...")
+	for scanner.Scan() {
+		var domain string = string(scanner.Text())
+		log.Println("Preparing statement for", domain, "...")
+
+		if strings.TrimSpace(domain) == "" {
+			continue
+		}
+
+		stmt, err := tx.Prepare(
+			`INSERT INTO domain_blacklist (domain) values ($1);`,
+		)
+		if err != nil {
+			return fmt.Errorf("prepare stmt failed: %w", err)
+		}
+
+		_, err = stmt.Exec(domain)
+		if err != nil {
+			return fmt.Errorf("execute stmt failed: %w", err)
+		}
+		stmt.Close()
+	}
+	err = scanner.Err()
+	if err != nil {
+		return fmt.Errorf("scanner error")
+	}
+	log.Println("Finished scanning acquired pornographic domain blacklist.")
+
+	return nil
+}
+
+func refreshLocalDomainBlacklist(tx *sql.Tx) error {
+	log.Println("Starting refresh of local domain blacklist!")
+
+	log.Println("Opening domain_blacklist.txt ...")
 	file, err := embedData.Open("data/domain_blacklist.txt")
 	if err != nil {
 		return fmt.Errorf("read file failed: %w", err)
 	}
 	defer file.Close()
+	log.Println("Opened domain_blacklist.txt")
 
+	log.Println("Create scanner of domain_blacklist.txt...")
 	scanner := bufio.NewScanner(file)
+	log.Println("Created scanner of domain_blacklist.txt")
 
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("begin tx failed: %w", err)
-	}
-	defer tx.Rollback()
-
-	tx.Exec(`DELETE FROM domain_blacklist *;`)
-
+	log.Println("Scanning domain_blacklist.txt ...")
 	for scanner.Scan() {
+		log.Println("Preparing statement for", scanner.Text(), "...")
 		if strings.TrimSpace(scanner.Text()) == "" {
 			continue
 		}
@@ -224,10 +286,53 @@ func InitializeDomainBlacklist(
 		}
 		stmt.Close()
 	}
+	log.Println("Finished scanning domain_blacklist.txt")
 
 	err = scanner.Err()
 	if err != nil {
 		return fmt.Errorf("scanner error: %w", err)
+	}
+
+	return nil
+}
+
+func RefreshDatabaseDomainBlacklist(
+	db *sql.DB,
+	mu *sync.Mutex,
+) error {
+	var (
+		wg  sync.WaitGroup
+		err error
+	)
+
+	// mu.Lock()
+	// defer mu.Unlock()
+
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx failed: %w", err)
+	}
+	defer tx.Rollback()
+
+	tx.Exec(`DELETE FROM domain_blacklist *;`)
+
+	wg.Go(func() {
+		e := refreshLocalDomainBlacklist(tx)
+		if e != nil {
+			err = fmt.Errorf("refresh local domain blacklist failed: %w", e)
+		}
+	})
+
+	wg.Go(func() {
+		e := refreshPornographicDomains(tx)
+		if e != nil {
+			err = fmt.Errorf("refresh remote pornographic domain blacklist failed: %w", e)
+		}
+	})
+
+	wg.Wait()
+	if err != nil {
+		return err
 	}
 
 	err = tx.Commit()
@@ -235,8 +340,7 @@ func InitializeDomainBlacklist(
 		return fmt.Errorf("commit tx failed: %w", err)
 	}
 
-	log.Println("Domain blacklist initialized successfully")
-
+	log.Println("Domain blacklist completed successfully")
 	return nil
 }
 

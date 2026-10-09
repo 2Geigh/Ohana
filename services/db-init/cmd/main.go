@@ -22,11 +22,11 @@ func init() {
 func main() {
 	defer connection.DB.Close()
 
-	err := database.InitializeDomainBlacklist(
+	err := database.RefreshDatabaseDomainBlacklist(
 		connection.DB,
 		&database.DatabaseMu,
 	)
 	if err != nil {
-		log.Fatalf("initialize domain blacklist failed: %v", err)
+		log.Fatalf("refresh domain blacklist failed: %v", err)
 	}
 }

@@ -25,7 +25,7 @@ func main() {
 		for {
 			log.Println("Refreshing domain blacklist...")
 
-			err := database.InitializeDomainBlacklist(
+			err := database.RefreshDatabaseDomainBlacklist(
 				connection.DB,
 				&database.DatabaseMu,
 			)
