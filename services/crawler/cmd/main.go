@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	MAXIMUM_NUMBER_OF_CRAWLERS = 100
+	MAXIMUM_NUMBER_OF_CRAWLERS = 20
 )
 
 func init() {
@@ -24,6 +24,7 @@ func init() {
 	}
 
 	log.Println("Enqueing seed URLs...")
+
 	for _, url := range crawling.SeedURLs {
 		err := database.EnqueueLinks(
 			[]models.Url{url},
@@ -34,6 +35,7 @@ func init() {
 			log.Fatalf("enqueue seed URLs failed: %v", err)
 		}
 	}
+
 	log.Println("Successfully enqueued seed URLs")
 }
 

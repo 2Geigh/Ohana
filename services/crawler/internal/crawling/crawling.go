@@ -142,6 +142,8 @@ type Crawler struct {
 	recievedResponse   recievedResponse
 }
 
+type Queues map[models.Domain][]models.Url
+
 func (c Crawler) Crawl() {
 	var (
 		err error
@@ -351,10 +353,7 @@ func (c Crawler) Crawl() {
 	}
 }
 
-func (c Crawler) findHyperlinks(
-	root_node *html.Node,
-	root_url models.Url,
-) []models.Url {
+func (c Crawler) findHyperlinks(root_node *html.Node, root_url models.Url) []models.Url {
 	var (
 		hyperlinks []models.Url
 	)
@@ -439,10 +438,7 @@ func (c Crawler) findHyperlinks(
 	return hyperlinks
 }
 
-func (c Crawler) isPageOnFediverse() (
-	bool,
-	error,
-) {
+func (c Crawler) isPageOnFediverse() (bool, error) {
 	// TODO: IMPLEMENT THIS FUNCTION USING DATA FROM:
 	// https://nodes.fediverse.party/
 
@@ -453,10 +449,7 @@ func (c Crawler) logCrawlCompletion() {
 	log.Println(c.runtimeStats())
 }
 
-func (c Crawler) logError(
-	message string,
-	err error,
-) {
+func (c Crawler) logError(message string, err error) {
 	if err == nil {
 		log.Printf("%s %s", c.runtimeStats(), message)
 		return
@@ -465,9 +458,7 @@ func (c Crawler) logError(
 	log.Printf("%s %s: %v", c.runtimeStats(), message, err)
 }
 
-func (c Crawler) parsePageDescription(
-	root_node *html.Node,
-) string {
+func (c Crawler) parsePageDescription(root_node *html.Node) string {
 	var (
 		pageDescription string
 	)
@@ -513,9 +504,7 @@ func (c Crawler) parsePageDescription(
 	return pageDescription
 }
 
-func (c Crawler) parsePageTitle(
-	root_node *html.Node,
-) string {
+func (c Crawler) parsePageTitle(root_node *html.Node) string {
 	var (
 		pageTitle string
 	)
@@ -601,11 +590,7 @@ func (c Crawler) waitPolitely() {
 	)
 }
 
-type Queues map[models.Domain][]models.Url
-
-func (queues Queues) Dequeue(
-	fqdn models.Domain,
-) models.Url {
+func (queues Queues) Dequeue(fqdn models.Domain) models.Url {
 
 	if len(queues[fqdn]) < 1 {
 		return models.Url("")
@@ -648,10 +633,7 @@ func (r recievedResponse) isReadableText() bool {
 	return false
 }
 
-func CleanCrawlerQueue(
-	db *sql.DB,
-	mu *sync.Mutex,
-) error {
+func CleanCrawlerQueue(db *sql.DB, mu *sync.Mutex) error {
 	if db == nil {
 		return fmt.Errorf("db is nil")
 	}
