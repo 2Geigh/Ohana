@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"strings"
 	"sync"
@@ -11,6 +12,8 @@ import (
 	"github.com/2Geigh/Ohana/crawler/internal/crawling"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
+
+	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 const (
@@ -23,13 +26,21 @@ func init() {
 		log.Fatalf("connect to database failed: %v", err)
 	}
 
+	log.Println("Connecting to embedded queue...")
+	log.Println("Successfully connected to embedded queue.")
+
+	connection.Queue, err = sql.Open("sqlite3", "/data/queue/queue.db")
+	if err != nil {
+		log.Fatalf("connect to embedded queue failed: %v", err)
+	}
+
 	log.Println("Enqueing seed URLs...")
 
 	for _, url := range crawling.SeedURLs {
 		err := database.EnqueueLinks(
 			[]models.Url{url},
-			connection.DB,
-			&database.DatabaseMu,
+			connection.Queue,
+			&connection.QueueMu,
 		)
 		if err != nil {
 			log.Fatalf("enqueue seed URLs failed: %v", err)
@@ -45,14 +56,16 @@ func main() {
 
 		crawlerMu sync.Mutex
 
-		crawlerQueues    crawling.Queues = make(crawling.Queues)
+		crawlerQueues    = make(crawling.Queues)
 		numberOfCrawlers atomic.Int64
 		crawlIteration   atomic.Int64
 		crawlerId        int64 = 0
 	)
 
+	defer connection.DB.Close()
+
 	wg.Go(func() {
-		for true {
+		for {
 			if crawlIteration.Load() < 5 {
 				continue
 			}
@@ -69,7 +82,7 @@ func main() {
 		}
 	})
 
-	for true {
+	for {
 
 		newLink, err := database.DequeueLink(connection.DB, &database.DatabaseMu)
 		if err != nil {
@@ -125,8 +138,6 @@ func main() {
 			crawlerMu.Unlock()
 		})
 	}
-
-	defer connection.DB.Close()
 
 	wg.Wait()
 }

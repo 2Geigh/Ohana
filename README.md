@@ -6,14 +6,18 @@ A language-specific search engine for the living web.
 
 This search engine is designed to do two things:
 
-1. Facilitate search beyond mainstream platforms (Reddit, Weibo, _etc_) into the re-fledgling [indie web](https://en.wikipedia.org/wiki/IndieWeb) (_e.g._ personal websites, Neocities pages, niche forums, _etc_).
+1. Facilitate search beyond mainstream platforms (Reddit, Weibo, _etc_) into the
+   re-fledgling [indie web](https://en.wikipedia.org/wiki/IndieWeb) (_e.g._
+   personal websites, Neocities pages, niche forums, _etc_).
 2. Allow for language-specific filtering of search results.
 
-In other words, this tool helps you browse the living web in your target language.
+In other words, this tool helps you browse the living web in your target
+language.
 
 ## Timeline
 
 ### v 1.0
+
     - [/] Fully functional web crawler
         - [x] Non-pornographic domain blocklist
         - [ ] Upper bounds on site quantity based on arbitrary target
@@ -22,6 +26,7 @@ In other words, this tool helps you browse the living web in your target languag
     - [ ] Implement a minimal client-facing Spring Boot service to query the database and display search results
 
 ### v 2.0
+
     - [ ] Basic ranking engine functionality
     - [ ] Crawler upgrades
         - [ ] Pornographic domain blocklist
@@ -37,4 +42,5 @@ In other words, this tool helps you browse the living web in your target languag
         - [ ] Add manifesto/about page
 
 ### v 3.0
+
     TBD
