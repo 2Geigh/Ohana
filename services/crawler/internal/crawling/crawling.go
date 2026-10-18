@@ -120,6 +120,7 @@ var (
 		models.Url("https://ring.fediverse.radio/"),
 		models.Url("https://pages.gay/"),
 		models.Url("https://whyarentyou.gay/"),
+		models.Url("https://www.bltc.com/"),
 	}
 )
 
