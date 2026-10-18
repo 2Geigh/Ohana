@@ -18,3 +18,7 @@
 /services/query_engine/.idea/.idea.query_engine.dir/.idea
 /.vscode
 /services/db-janitor/bin
+/services/crawler/.DS_Store
+/.DS_Store
+/services/.DS_Store
+/services/crawler/internal/.DS_Store
