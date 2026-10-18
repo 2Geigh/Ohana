@@ -11,28 +11,30 @@ This search engine is designed to do two things:
 
 In other words, this tool helps you browse the living web in your target language.
 
-## Architecture
+## Timeline
 
-### Crawler
+### v 1.0
+    - [/] Fully functional web crawler
+        - [x] Non-pornographic domain blocklist
+        - [ ] Upper bounds on site quantity based on arbitrary target
+        - [ ] Embedded SQLite queue for BFS
+    - [ ] Implement lexical search via pg_textsearch
+    - [ ] Implement a minimal client-facing Spring Boot service to query the database and display search results
 
-Implemented in [Go](https://go.dev).
+### v 2.0
+    - [ ] Basic ranking engine functionality
+    - [ ] Crawler upgrades
+        - [ ] Pornographic domain blocklist
+        - [ ] Upper bounds on site quantity based on "indie-ness" ranking
+    - [ ] Client
+        - [ ] Divide search results into multiple pages like Google
+        - [ ] Add CSS styling
+        - [ ] Add "recently added" section to homepage
+        - [ ] Add "most visited" section to webpage
+        - [ ] Add lightmode-darkmode
+        - [ ] Add "featured website" section
+        - [ ] Add privacy policy
+        - [ ] Add manifesto/about page
 
-### Database
-
-Implemented with [Postgresql](https://postgresql.org).
-
-### Indexer
-
-Implemented in [Java]("https://java.com") [25](https://openjdk.org/projects/jdk/25/) via [Maven](https://maven.apache.org/).
-
-### Ranking Engine
-
-Implemented in [Python](https://python.org).
-
-### Query Engine
-
-Implemented in [Java]("https://java.com") [25](https://openjdk.org/projects/jdk/25/) using [Spring](https://spring.io/) via [Gradle](https://gradle.org/).
-
-### Client
-
-Implemented in [PHP](https://php.net).
+### v 3.0
+    TBD
