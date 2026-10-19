@@ -76,13 +76,14 @@ func DequeueLink(
 
 func EnqueueLinks(
 	urls []models.Url,
-	db *sql.DB,
-	mu *sync.Mutex,
+	queueDb *sql.DB,
+	queueDbMu *sync.Mutex,
+	blacklistDb *sql.DB,
 ) error {
-	mu.Lock()
-	defer mu.Unlock()
+	queueDbMu.Lock()
+	defer queueDbMu.Unlock()
 
-	tx, err := db.Begin()
+	tx, err := queueDb.Begin()
 	if err != nil {
 		return fmt.Errorf("begin transaction failed: %w", err)
 	}
@@ -93,7 +94,7 @@ func EnqueueLinks(
 			isBlacklisted bool
 		)
 
-		isBlacklisted, err = url.GetDomain().IsBlacklisted(db, &DatabaseMu)
+		isBlacklisted, err = url.GetDomain().IsBlacklisted(blacklistDb, &DatabaseMu)
 		if err != nil {
 			return fmt.Errorf("determine url blacklist status failed: %w", err)
 		}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/2Geigh/Ohana/crawler/internal/connection"
 	"github.com/2Geigh/Ohana/crawler/internal/crawling"
+	"github.com/2Geigh/Ohana/crawler/internal/queue"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
 
@@ -34,6 +35,14 @@ func init() {
 		log.Fatalf("connect to embedded queue failed: %v", err)
 	}
 
+	log.Println("Migrating embedded queue...")
+
+	err = queue.Migrate(connection.Queue)
+	if err != nil {
+		log.Fatalf("migrate embedded queue failed: %v", err)
+	}
+
+	log.Println("Successfully migrated embedded queue.")
 	log.Println("Enqueing seed URLs...")
 
 	for _, url := range crawling.SeedURLs {
@@ -41,6 +50,7 @@ func init() {
 			[]models.Url{url},
 			connection.Queue,
 			&connection.QueueMu,
+			connection.DB,
 		)
 		if err != nil {
 			log.Fatalf("enqueue seed URLs failed: %v", err)
@@ -71,8 +81,9 @@ func main() {
 			}
 
 			err := crawling.CleanCrawlerQueue(
+				connection.Queue,
+				&connection.QueueMu,
 				connection.DB,
-				&database.DatabaseMu,
 			)
 			if err != nil {
 				log.Fatalf("clean database crawler queue failed: %v", err)
@@ -84,7 +95,7 @@ func main() {
 
 	for {
 
-		newLink, err := database.DequeueLink(connection.DB, &database.DatabaseMu)
+		newLink, err := database.DequeueLink(connection.Queue, &connection.QueueMu)
 		if err != nil {
 			log.Printf("dequeue links from database crawler queue failed: %v", err)
 			time.Sleep(10 * time.Second)
@@ -121,14 +132,16 @@ func main() {
 			crawlerId += 1
 
 			crawler := crawling.Crawler{
-				Id:               crawlerId,
-				Queues:           &crawlerQueues,
-				Fqdn:             fqdn,
-				CrawlerMu:        &crawlerMu,
-				Db:               connection.DB,
-				DbMu:             &database.DatabaseMu,
-				NumberOfCrawlers: &numberOfCrawlers,
-				CrawlIteration:   &crawlIteration,
+				Id:                crawlerId,
+				Queues:            &crawlerQueues,
+				Fqdn:              fqdn,
+				CrawlerMu:         &crawlerMu,
+				EmbeddedDbQueue:   connection.Queue,
+				EmbeddedDbQueueMu: &connection.QueueMu,
+				GlobalDb:          connection.DB,
+				GlobalDbMu:        &database.DatabaseMu,
+				NumberOfCrawlers:  &numberOfCrawlers,
+				CrawlIteration:    &crawlIteration,
 			}
 
 			crawler.Crawl()

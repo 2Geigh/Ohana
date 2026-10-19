@@ -125,14 +125,16 @@ var (
 )
 
 type Crawler struct {
-	Id               int64
-	Queues           *Queues
-	Fqdn             models.Domain
-	CrawlerMu        *sync.Mutex
-	Db               *sql.DB
-	DbMu             *sync.Mutex
-	NumberOfCrawlers *atomic.Int64
-	CrawlIteration   *atomic.Int64
+	Id                int64
+	Queues            *Queues
+	Fqdn              models.Domain
+	CrawlerMu         *sync.Mutex
+	EmbeddedDbQueue   *sql.DB
+	EmbeddedDbQueueMu *sync.Mutex
+	GlobalDb          *sql.DB
+	GlobalDbMu        *sync.Mutex
+	NumberOfCrawlers  *atomic.Int64
+	CrawlIteration    *atomic.Int64
 
 	currentUrl models.Url // for debugging
 	checkpoint string     // for debugging
@@ -192,7 +194,10 @@ func (c Crawler) Crawl() {
 		c.currentPage.Fqdn = c.currentPage.FullDomain.GetFQDN()
 		c.checkpoint = "set page.Fqdn"
 
-		c.currentPage.IsDomainBlacklisted, err = c.currentPage.Fqdn.IsBlacklisted(connection.DB, &database.DatabaseMu)
+		c.currentPage.IsDomainBlacklisted, err = c.currentPage.Fqdn.IsBlacklisted(
+			connection.DB,
+			&database.DatabaseMu,
+		)
 		if err != nil {
 			c.logError("determine domain blacklist status failed", err)
 			continue
@@ -315,8 +320,16 @@ func (c Crawler) Crawl() {
 		// Postgres will read it as an empty array
 		// Instead of as a NULL value
 		c.currentPage.Outneighbours = make([]models.Url, 0)
-		c.currentPage.Outneighbours = append(c.currentPage.Outneighbours, c.findHyperlinks(doc, c.currentUrl)...)
-		err = database.EnqueueLinks(c.currentPage.Outneighbours, connection.DB, &database.DatabaseMu)
+		c.currentPage.Outneighbours = append(
+			c.currentPage.Outneighbours,
+			c.findHyperlinks(doc, c.currentUrl)...,
+		)
+		err = database.EnqueueLinks(
+			c.currentPage.Outneighbours,
+			connection.Queue,
+			&connection.QueueMu,
+			connection.DB,
+		)
 		if err != nil {
 			c.logError("enqueue failed", err)
 			continue
@@ -409,9 +422,9 @@ func (c Crawler) findHyperlinks(root_node *html.Node, root_url models.Url) []mod
 				continue
 			}
 
-			// REMOVE ? QUERIES FROM URLs
+			// TODO: REMOVE ? QUERIES FROM URLs
 
-			// REMOVE mailto: AND ANY OTHER SUCH TYPES OF URLS
+			// TODO: REMOVE mailto: AND ANY OTHER SUCH TYPES OF URLS
 
 			// log.Println()
 			// log.Println("root_url", root_url)
@@ -421,7 +434,7 @@ func (c Crawler) findHyperlinks(root_node *html.Node, root_url models.Url) []mod
 			// log.Println("isAlternativeUriScheme", isAlternativeUriScheme)
 			// log.Printf("[%s] Found: %v", root_url, newfoundLink)
 
-			isBlacklisted, err := newfoundLink.GetDomain().IsBlacklisted(c.Db, c.DbMu)
+			isBlacklisted, err := newfoundLink.GetDomain().IsBlacklisted(c.GlobalDb, c.GlobalDbMu)
 			if err != nil {
 				log.Printf("determine blacklist status of newfound link %s failed: %v", newfoundLink, err)
 				continue
@@ -634,25 +647,71 @@ func (r recievedResponse) isReadableText() bool {
 	return false
 }
 
-func CleanCrawlerQueue(db *sql.DB, mu *sync.Mutex) error {
-	if db == nil {
-		return fmt.Errorf("db is nil")
-	}
-	if mu == nil {
-		return fmt.Errorf("mutex is nil")
-	}
-
-	mu.Lock()
-	result, err := db.Exec(
-		`DELETE FROM crawler_queue cq
-			USING pages p
-			WHERE cq.hyperlink = p.link
-				AND p.date_last_crawled > CURRENT_TIMESTAMP - $1::interval;`,
+func CleanCrawlerQueue(queueDb *sql.DB, queueDbMu *sync.Mutex, globalDb *sql.DB) error {
+	rows, err := globalDb.Query(`
+		SELECT link
+		FROM pages
+		WHERE date_last_crawled > CURRENT_TIMESTAMP - $1::interval
+		`,
 		fmt.Sprintf("%d seconds", int(CRAWLER_OLDNESS_THRESHOLD/time.Second)),
 	)
-	mu.Unlock()
+	if err != nil {
+		return fmt.Errorf("get pages from global DB failed: %w", err)
+	}
+	defer rows.Close()
+
+	queueDbMu.Lock()
+	defer queueDbMu.Unlock()
+
+	tx, err := queueDb.Begin()
+	if err != nil {
+		return fmt.Errorf("begin tx failed: %w", err)
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS recently_crawled_pages (link TEXT PRIMARY KEY)`)
+	if err != nil {
+		return fmt.Errorf("create temporary table in embedded queue database transaction failed: %w", err)
+	}
+	_, err = tx.Exec(`DELETE FROM recently_crawled_pages`)
+	if err != nil {
+		return fmt.Errorf("clear temporary table in embedded queue database transaction failed: %w", err)
+	}
+
+	insertStmt, err := tx.Prepare("INSERT OR IGNORE INTO recently_crawled_pages (link) VALUES (?)")
+	if err != nil {
+		return fmt.Errorf("prepare insert stmt failed: %w", err)
+	}
+
+	for rows.Next() {
+		var link string
+
+		err = rows.Scan(&link)
+		if err != nil {
+			return fmt.Errorf("failed to scan link into local variable: %w", err)
+		}
+
+		_, err = insertStmt.Exec(link)
+		if err != nil {
+			return fmt.Errorf("failed to execute insert stmt: %w", err)
+		}
+	}
+
+	result, err := tx.Exec(`
+		DELETE FROM crawler_queue
+		WHERE EXISTS (
+			SELECT 1
+			FROM recently_crawled_pages p
+			WHERE p.link = crawler_queue.hyperlink
+		)`,
+	)
 	if err != nil {
 		return fmt.Errorf("execute DELETE FROM crawler_queue failed: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("commit tx failed: %w", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -660,10 +719,9 @@ func CleanCrawlerQueue(db *sql.DB, mu *sync.Mutex) error {
 		return fmt.Errorf("get rows affected failed: %w", err)
 	}
 
-	mu.Lock()
 	log.Println()
 	log.Printf("Crawler queue purged successfully, eliminating %d links.", rowsAffected)
 	log.Println()
-	mu.Unlock()
+
 	return nil
 }
