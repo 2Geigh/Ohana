@@ -67,6 +67,7 @@
 *.barclaycard
 *.barclays
 *.barefoot
+*.baseball
 *.basketball
 *.bauhaus
 *.bbc
@@ -206,6 +207,7 @@
 *.gle
 *.globo
 *.gmail
+*.gmbh
 *.gmo
 *.gmx
 *.godaddy
@@ -308,6 +310,7 @@
 *.lotte
 *.lpl
 *.lplfinancial
+*.ltda
 *.lundbeck
 *.lupin
 *.macys
@@ -373,6 +376,7 @@
 *.otsuka
 *.ovh
 *.panasonic
+*.passagens
 *.pccw
 *.pfizer
 *.pharmacy
@@ -399,8 +403,10 @@
 *.quest
 *.qvc
 *.redstone
+*.reise
 *.reit
 *.reliance
+*.ren
 *.rexroth
 *.ricoh
 *.ril
@@ -459,6 +465,7 @@
 *.statoil
 *.stc
 *.stcgroup
+*.stockholm
 *.suzuki
 *.swatch
 *.swiftcover
@@ -549,6 +556,7 @@
 *.香格里拉
 *.삼성
 *silk
+*政府
 0emm.com
 100classicbooks.com
 11880.com
@@ -1678,6 +1686,7 @@ github.com
 github.community
 githubengineering.com
 githubusercontent.com
+gitlab.com
 gizmodo.com
 gkecnapps.cn 
 glamour.com
@@ -2837,6 +2846,7 @@ songmeanings.com
 songtexte.com
 sony.com
 soundcloud.com
+sourceforge.net
 southernliving.com
 spanishdict.com
 spektral.cc
