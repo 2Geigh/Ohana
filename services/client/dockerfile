@@ -1,13 +1,16 @@
-FROM php:8.5-fpm-alpine
+FROM maven:3.9-amazoncorretto-25-alpine AS build
 
-WORKDIR /var/www/html
+WORKDIR /app
 
-COPY . .
+COPY pom.xml .
+COPY src ./src
 
-# RUN apk add composer
+RUN mvn clean package
 
-# RUN composer install
+FROM amazoncorretto:25-alpine AS dist
 
-# RUN apk del composer
+WORKDIR /app
 
-CMD ["php-fpm", "-F"]
+COPY --from=build /app/target/client-1.0-SNAPSHOT.jar ./app.jar
+
+CMD ["java", "-jar", "/app/app.jar"]

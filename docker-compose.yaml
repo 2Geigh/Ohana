@@ -75,30 +75,13 @@ services:
                 container_name: ohana-client
                 networks:
                         - userspace
+                        - infrastructure
                 build:
                         context: ./services/client
                         dockerfile: ./dockerfile
-                volumes:
-                        - ./services/client/public:/var/www/html/public
-                healthcheck:
-                        test: ["CMD-SHELL", "php-fpm -t"]
-                        interval: 5s
-                        timeout: 3s
-                        retries: 10
-
-        server:
-                container_name: ohana-server
-                image: nginx:stable-alpine-slim
-                networks:
-                        - userspace
-                depends_on:
-                        client:
-                                condition: service_healthy
-                volumes:
-                        - ./services/client/public:/var/www/html/public:ro
-                        - ./services/server/nginx.conf:/etc/nginx/nginx.conf:ro
                 ports:
                         - "3020:80"
+
 
 volumes:
         db-data:
