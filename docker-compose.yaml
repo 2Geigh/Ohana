@@ -80,7 +80,7 @@ services:
                         context: ./services/client
                         dockerfile: ./dockerfile
                 ports:
-                        - "3020:80"
+                        - "3020:8080"
 
 
 volumes:
