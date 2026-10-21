@@ -1,7 +1,11 @@
 import { redirect } from "next/navigation";
 import { FC } from "react";
 import { CONSTANTS } from "../page";
-import { start } from "repl";
+import { connection } from "next/server";
+
+// This lets NextJS know that this page shouldn't be expected to load instantaneously
+// This helps the page rendering be deterministic
+export const instant = false;
 
 async function sleep(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -23,6 +27,7 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
   }
 
   // Stand-in for getting search results via database query
+  await connection();
   const startTime = performance.now();
   await sleep(Math.random() * 1000);
   const searchDuration = performance.now() - startTime;
