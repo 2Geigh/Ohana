@@ -1,3 +1,10 @@
+export const CONSTANTS = {
+  SEARCH: {
+    MAX_LENGTH: 255,
+    SEARCH_BUTTON_LABEL: "Go",
+  },
+};
+
 export default function Home() {
   return (
     <main>
@@ -13,8 +20,14 @@ export default function Home() {
         </h2>
 
         <form action="/search" method="GET">
-          <input type="text" name="query" id="query" required />
-          <input type="submit" value="Go" />
+          <input
+            type="text"
+            name="query"
+            id="query"
+            required
+            maxLength={CONSTANTS.SEARCH.MAX_LENGTH}
+          />
+          <input type="submit" value={CONSTANTS.SEARCH.SEARCH_BUTTON_LABEL} />
         </form>
       </section>
 

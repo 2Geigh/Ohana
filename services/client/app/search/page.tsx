@@ -1,5 +1,11 @@
 import { redirect } from "next/navigation";
 import { FC } from "react";
+import { CONSTANTS } from "../page";
+import { start } from "repl";
+
+async function sleep(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 type SearchProps = {
   searchParams: Promise<{
@@ -16,8 +22,12 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
     redirect("/");
   }
 
+  // Stand-in for getting search results via database query
+  const startTime = performance.now();
+  await sleep(Math.random() * 1000);
+  const searchDuration = performance.now() - startTime;
+
   const numberOfResults = 0;
-  const searchDuration = 0;
 
   return (
     <main>
@@ -26,16 +36,17 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
         <form action="/search" method="GET">
           <input
             type="text"
-            minLength={0}
-            maxLength={0}
+            id="query"
+            name="query"
+            maxLength={CONSTANTS.SEARCH.MAX_LENGTH}
             required
-            value={query}
+            defaultValue={query}
           />
-          <input type="submit" value="Go" />
+          <input type="submit" value={CONSTANTS.SEARCH.SEARCH_BUTTON_LABEL} />
         </form>
       </section>
       <section>
-        {numberOfResults} results in {searchDuration} ms.
+        Returned {numberOfResults} results in {Math.round(searchDuration)} ms.
       </section>
     </main>
   );
