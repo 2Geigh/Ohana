@@ -21,13 +21,15 @@ services:
                 container_name: ohana-db
                 environment:
                         PGUSER: ${DB_USERNAME}
+                        POSTGRES_USER: ${DB_USERNAME}
                         POSTGRES_PASSWORD: ${DB_PASSWORD}
                         POSTGRES_DB: ${DB_NAME}
+                        PGDATA: /var/lib/ohana
                         POSTGRES_PORT: ${DB_CONTAINER_PORT}
                 volumes:
                         - db-data:/var/lib/ohana
                 healthcheck:
-                        test: ["CMD", "pg_isready"]
+                        test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
                         interval: 1s
                         timeout: 5s
                         retries: 100

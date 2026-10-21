@@ -128,6 +128,8 @@ var (
 		models.Url("https://ytmnd.com"),
 		models.Url("https://マリウス.com/"),
 		models.Url("https://猫.移动/webring/"),
+		models.Url("ourfavoritevoid.club"),
+		models.Url("procrastinators.org"),
 	}
 )
 
