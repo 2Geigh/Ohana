@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 export default function Home() {
   return (
     <main>
@@ -9,12 +7,13 @@ export default function Home() {
           Surf the <em>living</em> web
           <noscript>
             {" "}
-            <em>without</em> JavaScript
+            <u>without Javascript</u>
           </noscript>
+          .
         </h2>
 
-        <form action="/search" method="get">
-          <input type="text" name="q" id="q" required />
+        <form action="/search" method="GET">
+          <input type="text" name="query" id="query" required />
           <input type="submit" value="Go" />
         </form>
       </section>
