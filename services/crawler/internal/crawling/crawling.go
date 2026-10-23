@@ -102,6 +102,7 @@ var (
 		models.Url("https://skateboard.nekoweb.org/webring/phightring"),
 		models.Url("https://smoothsailing.asclaria.org/"),
 		models.Url("https://taylor.town/about"),
+		models.Url("https://teacake.org/"),
 		models.Url("https://theotaku.com/"),
 		models.Url("https://v2ex.com"),
 		models.Url("https://web1.0hosting.net/"),
