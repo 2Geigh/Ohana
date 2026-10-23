@@ -2087,6 +2087,7 @@ imgur.com
 imovie.eu
 imoviegallery.com
 imoviestage.com
+impact.com
 impermium.com
 inchcalculator.com
 include:apple-dev
