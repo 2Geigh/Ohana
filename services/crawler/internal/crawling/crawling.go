@@ -589,7 +589,7 @@ func (c Crawler) runtimeStats() string {
 		c.CrawlIteration.Load(),
 		c.Id,
 		c.currentPage.Fqdn,
-		c.currentPage.Url,
+		c.currentPage.Url.SanitizeToSave(),
 	)
 }
 
