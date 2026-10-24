@@ -12,8 +12,20 @@
     devShells = nixpkgs.lib.genAttrs systems (system: {
       default = nixpkgs.legacyPackages.${system}.mkShell {
         packages = with nixpkgs.legacyPackages.${system}; [
+          beamPackages.elixir
+          beamPackages.erlang
+          cargo
+          docker
+          docker-compose
+          go_1_27
+          jdk25
+          maven
           nodejs
+          php
+          pnpm
           python3
+          rustc
+          uv
         ];
 
         shellHook = ''
