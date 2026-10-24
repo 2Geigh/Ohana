@@ -129,7 +129,7 @@ var (
 		models.Url("https://ytmnd.com"),
 		models.Url("https://マリウス.com/"),
 		models.Url("https://猫.移动/webring/"),
-		models.Url("ourfavoritevoid.club"),
+		models.Url("https://ourfavoritevoid.club"),
 		models.Url("procrastinators.org"),
 	}
 )
@@ -594,8 +594,8 @@ func (c Crawler) queueLength() int {
 }
 
 func (c Crawler) runtimeStats() string {
-	c.CrawlerMu.Lock()
-	defer c.CrawlerMu.Unlock()
+	// c.CrawlerMu.Lock()
+	// defer c.CrawlerMu.Unlock()
 
 	return fmt.Sprintf("(Q=%d, n=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
 		len(*c.Queues), // number of unique domains queued in memory
