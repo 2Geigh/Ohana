@@ -22,6 +22,7 @@ language.
   - [x] Non-pornographic domain blocklist
   - [ ] Upper bounds on site quantity based on arbitrary target
   - [x] Embedded SQLite queue for BFS
+  - [ ] Give embedded SQLite queue a Docker volume for data persistence across restarts
 - [ ] Implement lexical search via pg_textsearch
 - [ ] Implement a minimal client-facing Spring Boot service to query the database and display search results
 
