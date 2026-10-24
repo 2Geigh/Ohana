@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { FC } from "react";
 import { CONSTANTS } from "../page";
 import { connection } from "next/server";
+import { DbClient } from "@/lib/db/db";
+import postgres from "postgres";
 
 // This lets NextJS know that this page shouldn't be expected to load instantaneously
 // This helps the page rendering be deterministic
@@ -29,7 +31,28 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
   // Stand-in for getting search results via database query
   await connection();
   const startTime = performance.now();
-  await sleep(Math.random() * 1000);
+
+  DbClient.connect();
+  await DbClient.query(
+    `SELECT
+      pdb.score(id),
+      title,
+      description,
+      link,
+    FROM pages
+    WHERE description ||| '${query}'
+    ORDER BY score DESC
+    LIMIT 10;`,
+    (resp: unknown, err: Error) => {
+      if (!err) {
+        console.log(resp);
+      } else {
+        console.error(err.message);
+      }
+      DbClient.end;
+    },
+  );
+
   const searchDuration = performance.now() - startTime;
 
   const numberOfResults = 0;

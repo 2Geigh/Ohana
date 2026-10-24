@@ -654,6 +654,7 @@ func (r recievedResponse) isReadableText() bool {
 		}
 	}
 
+	log.Println("actual content-type:", r.contentType)
 	return false
 }
 
