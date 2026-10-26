@@ -129,10 +129,10 @@ func main() {
 			numberOfCrawlers.Add(1)
 			defer numberOfCrawlers.Add(-1)
 
-			_ = crawlerId.Add(1)
+			crawlerId.Add(1)
 
 			crawler := crawling.Crawler{
-				Id:                crawlerId.Load(),
+				Id:                &crawlerId,
 				Queues:            &crawlerQueues,
 				Fqdn:              fqdn,
 				CrawlerMu:         &crawlerMu,

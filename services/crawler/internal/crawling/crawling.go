@@ -19,6 +19,7 @@ import (
 	"github.com/2Geigh/Ohana/crawler/internal/connection"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
+	"github.com/k3a/html2text"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 	"golang.org/x/net/html/charset"
@@ -135,7 +136,7 @@ var (
 )
 
 type Crawler struct {
-	Id                int64
+	Id                *atomic.Int64
 	Queues            *Queues
 	Fqdn              models.Domain
 	CrawlerMu         *sync.Mutex
@@ -167,6 +168,10 @@ func (c Crawler) Crawl() {
 	c.politenessInterval = CRAWLER_STARTING_POLITENESS_INTERVAL
 
 	defer func() {
+		if err != nil {
+			c.Id.Add(-1)
+		}
+
 		raisedError := recover()
 
 		if raisedError != nil {
@@ -180,12 +185,16 @@ func (c Crawler) Crawl() {
 		}
 	}()
 
+	// log.Println("Starting a crawl loop...")
 	for c.queueLength() > 0 {
+		// log.Println("Iterating over a crawl loop...")
 		c.currentPage = models.Webpage{}
 		c.recievedResponse = recievedResponse{}
 
 		c.CrawlerMu.Lock()
 		c.currentUrl = (*c.Queues).Dequeue(c.Fqdn)
+		// c.checkpoint = "Dequeued link"
+		// log.Println(c.checkpoint)
 		c.CrawlerMu.Unlock()
 
 		// e ** 3 is ~20
@@ -197,17 +206,22 @@ func (c Crawler) Crawl() {
 
 		c.currentPage.Url = c.currentUrl
 		c.checkpoint = "set page.Url"
+		// log.Println(c.checkpoint)
 
 		c.currentPage.FullDomain = c.currentPage.Url.GetDomain()
 		c.checkpoint = "set page.FullDomain"
+		// log.Println(c.checkpoint)
 
 		c.currentPage.Fqdn = c.currentPage.FullDomain.GetFQDN()
 		c.checkpoint = "set page.Fqdn"
+		// log.Println(c.checkpoint)
 
 		c.currentPage.IsDomainBlacklisted, err = c.currentPage.Fqdn.IsBlacklisted(
 			connection.DB,
 			&database.DatabaseMu,
 		)
+		c.checkpoint = "Determined domain blacklist status"
+		// log.Println(c.checkpoint)
 		if err != nil {
 			c.logError("determine domain blacklist status failed", err)
 			continue
@@ -217,32 +231,18 @@ func (c Crawler) Crawl() {
 			continue
 		}
 
-		// c.currentPage.IsTooRecentlyCrawled, err = c.currentPage.
-		// 	Url.IsTooRecentlyCrawled(
-		// 	connection.DB,
-		// 	CRAWLER_OLDNESS_THRESHOLD,
-		// )
-		// c.checkpoint = "Determined domain crawling recency status"
-		// log.Println(c.checkpoint)
-		// if err != nil {
-		// 	c.logError("determine page freshness failed", err)
-		// 	continue
-		// }
-		// if c.currentPage.IsTooRecentlyCrawled {
-		// 	c.logError("page has been too recently crawled", nil)
-		// 	continue
-		// }
-
 		c.currentPage.HasDomainBeenRequestedTooRecently, err = c.currentPage.
 			Fqdn.HasBeenRequestedTooRecently(
 			c.politenessInterval,
 			&database.DatabaseMu,
-			connection.DB)
+			connection.DB,
+		)
+		c.checkpoint = "Determined domain crawling politeness status"
+		// log.Println(c.checkpoint)
 		if err != nil {
 			c.logError("determine necessary politeness failed", err)
 			continue
 		}
-
 		if c.currentPage.HasDomainBeenRequestedTooRecently {
 			c.waitPolitely()
 			continue
@@ -347,11 +347,20 @@ func (c Crawler) Crawl() {
 			continue
 		}
 
-		c.currentPage.Title = c.parsePageTitle(doc)
-		c.checkpoint = "set page.Title"
-
-		c.currentPage.Description = c.parsePageDescription(doc)
-		c.checkpoint = "set page.Description"
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			c.currentPage.Title = c.parsePageTitle(doc)
+			c.checkpoint = "set page.Title"
+		})
+		wg.Go(func() {
+			c.currentPage.Description = c.parsePageDescription(doc)
+			c.checkpoint = "set page.Description"
+		})
+		wg.Go(func() {
+			c.currentPage.Text = c.parsePageText(string(c.recievedResponse.body.asBytes))
+			c.checkpoint = "set page.Text"
+		})
+		wg.Wait()
 
 		c.currentPage.IsFediverseNode, err = c.isPageOnFediverse()
 		if err != nil {
@@ -371,11 +380,14 @@ func (c Crawler) Crawl() {
 			continue
 		}
 
-		c.CrawlerMu.Lock()
-		_ = c.CrawlIteration.Add(1)
+		func() {
+			c.CrawlerMu.Lock()
+			defer c.CrawlerMu.Unlock()
 
-		c.logCrawlCompletion()
-		c.CrawlerMu.Unlock()
+			_ = c.CrawlIteration.Add(1)
+			err = nil
+			c.logCrawlCompletion()
+		}()
 	}
 }
 
@@ -530,6 +542,14 @@ func (c Crawler) parsePageDescription(root_node *html.Node) string {
 	return pageDescription
 }
 
+func (c Crawler) parsePageText(html string) string {
+	pageText := html2text.HTML2TextWithOptions(html, html2text.WithLinksInnerText())
+
+	pageTextWithWhitespaceSquashed := strings.Join(strings.Fields(pageText), " ")
+
+	return strings.TrimSpace(pageTextWithWhitespaceSquashed)
+}
+
 func (c Crawler) parsePageTitle(root_node *html.Node) string {
 	var (
 		pageTitle string
@@ -604,7 +624,7 @@ func (c Crawler) runtimeStats() string {
 		c.NumberOfCrawlers.Load(),
 		len((*c.Queues)[c.Fqdn]),
 		c.CrawlIteration.Load(),
-		c.Id,
+		c.Id.Load(),
 		c.currentPage.Fqdn,
 		c.currentPage.Url,
 	)
