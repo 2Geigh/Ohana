@@ -1,1 +1,11 @@
-<h1>Results:</h1>
+<h1>Search results</h1>
+
+<ul>
+  <%= for result <- @results do %>
+    <li>
+      <h2><a href={result.link}>{result.title}</a></h2>
+      <p>{result.description}</p>
+      <p><a href={result.link}>{result.link}</a></p>
+    </li>
+  <% end %>
+</ul>
