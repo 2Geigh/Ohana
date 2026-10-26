@@ -69,14 +69,14 @@ func main() {
 		crawlerQueues    = make(crawling.Queues)
 		numberOfCrawlers atomic.Int64
 		crawlIteration   atomic.Int64
-		crawlerId        int64 = 0
+		crawlerId        atomic.Int64
 	)
 
 	defer connection.DB.Close()
 
 	wg.Go(func() {
 		for {
-			if crawlIteration.Load() < 5 {
+			if crawlIteration.Load() < 1 {
 				continue
 			}
 
@@ -129,10 +129,10 @@ func main() {
 			numberOfCrawlers.Add(1)
 			defer numberOfCrawlers.Add(-1)
 
-			crawlerId += 1
+			_ = crawlerId.Add(1)
 
 			crawler := crawling.Crawler{
-				Id:                crawlerId,
+				Id:                crawlerId.Load(),
 				Queues:            &crawlerQueues,
 				Fqdn:              fqdn,
 				CrawlerMu:         &crawlerMu,

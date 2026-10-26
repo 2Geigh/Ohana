@@ -217,19 +217,21 @@ func (c Crawler) Crawl() {
 			continue
 		}
 
-		c.currentPage.IsTooRecentlyCrawled, err = c.currentPage.
-			Url.IsTooRecentlyCrawled(
-			connection.DB,
-			CRAWLER_OLDNESS_THRESHOLD,
-		)
-		if err != nil {
-			c.logError("determine page freshness failed", err)
-			continue
-		}
-
-		if c.currentPage.IsTooRecentlyCrawled {
-			continue
-		}
+		// c.currentPage.IsTooRecentlyCrawled, err = c.currentPage.
+		// 	Url.IsTooRecentlyCrawled(
+		// 	connection.DB,
+		// 	CRAWLER_OLDNESS_THRESHOLD,
+		// )
+		// c.checkpoint = "Determined domain crawling recency status"
+		// log.Println(c.checkpoint)
+		// if err != nil {
+		// 	c.logError("determine page freshness failed", err)
+		// 	continue
+		// }
+		// if c.currentPage.IsTooRecentlyCrawled {
+		// 	c.logError("page has been too recently crawled", nil)
+		// 	continue
+		// }
 
 		c.currentPage.HasDomainBeenRequestedTooRecently, err = c.currentPage.
 			Fqdn.HasBeenRequestedTooRecently(
