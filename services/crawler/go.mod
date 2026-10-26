@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/k3a/html2text v1.5.1 // indirect
 	github.com/mattn/go-sqlite3 v1.14.52 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/ncruces/go-sqlite3-wasm/v6 v6.3.35304 // indirect
