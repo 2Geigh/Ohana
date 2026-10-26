@@ -4,4 +4,8 @@ defmodule OhanaClientWeb.PageController do
   def home(conn, _params) do
     render(conn, :home)
   end
+
+  def search(conn, _params) do
+    render(conn, :search)
+  end
 end
