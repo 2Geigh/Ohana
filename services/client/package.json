@@ -9,11 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@paradedb/drizzle-paradedb": "0.7.1",
     "dotenv": "^18.0.9",
-    "drizzle-orm": "1.0.0-rc.4",
     "next": "16.4.2",
-    "pg": "^8.23.1",
     "postgres": "^3.4.9",
     "react": "19.3.0",
     "react-dom": "19.3.0",
