@@ -64,7 +64,7 @@ func main() {
 
 	wg.Go(func() {
 		for {
-			if crawlIteration.Load() < 1 {
+			if crawlIteration.Load() < 10 {
 				continue
 			}
 
