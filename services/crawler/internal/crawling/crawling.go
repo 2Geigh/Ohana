@@ -246,7 +246,7 @@ func (c *Crawler) processLink(link models.Url) error {
 		return fmt.Errorf("determine domain blacklist status failed: %w", err)
 	}
 	if c.currentPage.IsDomainBlacklisted {
-		return fmt.Errorf("domain blacklisted: %w", err)
+		return fmt.Errorf("domain blacklisted")
 	}
 	c.setCheckpoint("evaluated domain blacklist status")
 
@@ -621,12 +621,16 @@ func (c *Crawler) runtimeStats() string {
 }
 
 func (c *Crawler) waitPolitely() {
+	c.setCheckpoint(fmt.Sprintf("Waiting politely (degree = %d)...", c.degreeOfPoliteness))
+
 	time.Sleep(c.politenessInterval)
 
 	c.degreeOfPoliteness += 1
 	c.politenessInterval = time.Duration(
 		float64(CRAWLER_STARTING_POLITENESS_INTERVAL) * math.Exp(float64(c.degreeOfPoliteness)),
 	)
+
+	c.setCheckpoint(fmt.Sprintf("Waited politely (NEW degree = %d)...", c.degreeOfPoliteness))
 }
 
 type recievedResponse struct {
@@ -704,6 +708,11 @@ func CleanCrawlerQueue(queueDb *sql.DB, queueDbMu *sync.Mutex, globalDb *sql.DB)
 		if err != nil {
 			return fmt.Errorf("failed to execute insert stmt: %w", err)
 		}
+	}
+
+	err = rows.Err()
+	if err != nil {
+		return fmt.Errorf("rows error: %w", rows.Err())
 	}
 
 	result, err := tx.Exec(`
