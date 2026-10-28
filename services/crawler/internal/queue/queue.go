@@ -60,17 +60,31 @@ func Dequeue(queue *sql.DB, mu *sync.Mutex) (models.Url, error) {
 	return link, nil
 }
 
-func UpdateTimeLastRequested(url models.Url, queue *sql.DB, mu *sync.Mutex) error {
+func UpdateTimeLastRequested(url models.Url, queue *sql.DB, mu *sync.Mutex, isUsingCheckpoints bool) error {
 	mu.Lock()
 	defer mu.Unlock()
 
-	queue.Exec(
-		`UPDATE doamins
+	result, err := queue.Exec(
+		`UPDATE domains
 		SET time_last_requested = ?
 		WHERE fqdn = ?;`,
 		time.Now().Unix(),
 		url.GetDomain().GetFQDN(),
 	)
+
+	if err != nil {
+		return fmt.Errorf("UPDATE domains failed: %w", err)
+	}
+
+	n, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check updated rows: %w", err)
+	}
+
+	if isUsingCheckpoints {
+		log.Printf("updated last-requested timestamp for %q: rows=%d",
+			url.GetDomain().GetFQDN(), n)
+	}
 
 	return nil
 }

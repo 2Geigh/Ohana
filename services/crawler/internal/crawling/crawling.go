@@ -260,19 +260,37 @@ func (c *Crawler) processLink(link models.Url) error {
 		return fmt.Errorf("determine necessary politeness failed: %w", err)
 	}
 	c.setCheckpoint("Determined domain crawling politeness status")
+	c.setCheckpoint(fmt.Sprintf(
+		"recent request? %t; interval=%s",
+		c.currentPage.HasDomainBeenRequestedTooRecently,
+		c.politenessInterval,
+	))
+
 	if c.currentPage.HasDomainBeenRequestedTooRecently {
+		c.setCheckpoint(fmt.Sprintf(
+			"starting politeness wait at %s",
+			time.Now().Format(time.RFC3339)),
+		)
 		c.waitPolitely()
+		c.setCheckpoint(fmt.Sprintf(
+			"finished politeness wait at %s",
+			time.Now().Format(time.RFC3339)),
+		)
 	}
+
+	// this comes before the request to make timing more consistent between crawler processes
+	// in the event that a request takes a really long time to retrieve
+	err = queue.UpdateTimeLastRequested(c.currentPage.Url, c.Queue, c.CrawlerMu, c.useCheckpoints)
+	if err != nil {
+		return fmt.Errorf("update time last requested for %s failed: %w", c.currentPage.Url, err)
+	}
+	c.setCheckpoint("executed queue.UpdateTimeLastRequested")
 
 	response, err := http.Get(string(c.currentPage.Url))
 	if err != nil {
 		return fmt.Errorf("GET request unfulfilled: %w", err)
 	}
-
-	err = queue.UpdateTimeLastRequested(c.currentPage.Url, c.Queue, c.CrawlerMu)
-	if err != nil {
-		return fmt.Errorf("update time last requested for %s failed: %w", c.currentPage.Url, err)
-	}
+	c.setCheckpoint(fmt.Sprintf("recieved response from GET %s", c.currentPage.Url))
 
 	c.recievedResponse = recievedResponse{
 		body: struct {
@@ -625,7 +643,10 @@ func (c *Crawler) waitPolitely() {
 
 	time.Sleep(c.politenessInterval)
 
-	c.degreeOfPoliteness += 1
+	if c.degreeOfPoliteness < 5 {
+		c.degreeOfPoliteness += 1
+	}
+
 	c.politenessInterval = time.Duration(
 		float64(CRAWLER_STARTING_POLITENESS_INTERVAL) * math.Exp(float64(c.degreeOfPoliteness)),
 	)
