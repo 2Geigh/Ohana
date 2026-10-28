@@ -3,10 +3,8 @@ package main
 import (
 	"database/sql"
 	"log"
-	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/2Geigh/Ohana/crawler/internal/connection"
 	"github.com/2Geigh/Ohana/crawler/internal/crawling"
@@ -46,12 +44,7 @@ func init() {
 	log.Println("Enqueing seed URLs...")
 
 	for _, url := range crawling.SeedURLs {
-		err := database.EnqueueLinks(
-			[]models.Url{url},
-			connection.Queue,
-			&connection.QueueMu,
-			connection.DB,
-		)
+		err := queue.Enqueue(connection.Queue, &connection.QueueMu, []models.Url{url})
 		if err != nil {
 			log.Fatalf("enqueue seed URLs failed: %v", err)
 		}
@@ -64,12 +57,7 @@ func main() {
 	var (
 		wg sync.WaitGroup
 
-		crawlerMu sync.Mutex
-
-		crawlerQueues    = make(crawling.Queues)
-		numberOfCrawlers atomic.Int64
-		crawlIteration   atomic.Int64
-		crawlerId        atomic.Int64
+		crawlIteration atomic.Int64
 	)
 
 	defer connection.DB.Close()
@@ -93,62 +81,21 @@ func main() {
 		}
 	})
 
-	for {
-
-		newLink, err := database.DequeueLink(connection.Queue, &connection.QueueMu)
-		if err != nil {
-			log.Printf("dequeue links from database crawler queue failed: %v", err)
-			time.Sleep(10 * time.Second)
-			continue
-		}
-
-		fqdn := newLink.GetDomain().GetFQDN()
-
-		crawlerMu.Lock()
-		_, isDomainOwnedByACrawler := crawlerQueues[fqdn]
-		crawlerMu.Unlock()
-
-		if isDomainOwnedByACrawler {
-			crawlerMu.Lock()
-			crawlerQueues[fqdn] = append(crawlerQueues[fqdn], newLink)
-			crawlerMu.Unlock()
-			continue
-		}
-
-		if strings.TrimSpace(string(fqdn)) != "" {
-			crawlerMu.Lock()
-			crawlerQueues[fqdn] = []models.Url{newLink}
-			crawlerMu.Unlock()
-		}
-
-		if numberOfCrawlers.Load() >= MAXIMUM_NUMBER_OF_CRAWLERS {
-			continue
-		}
-
+	for n := range MAXIMUM_NUMBER_OF_CRAWLERS {
 		wg.Go(func() {
-			numberOfCrawlers.Add(1)
-			defer numberOfCrawlers.Add(-1)
-
-			crawlerId.Add(1)
-
+			connection.QueueMu.Lock()
 			crawler := crawling.Crawler{
-				Id:                &crawlerId,
-				Queues:            &crawlerQueues,
-				Fqdn:              fqdn,
-				CrawlerMu:         &crawlerMu,
-				EmbeddedDbQueue:   connection.Queue,
-				EmbeddedDbQueueMu: &connection.QueueMu,
-				GlobalDb:          connection.DB,
-				GlobalDbMu:        &database.DatabaseMu,
-				NumberOfCrawlers:  &numberOfCrawlers,
-				CrawlIteration:    &crawlIteration,
+				Id:               n,
+				Queue:            connection.Queue,
+				CrawlerMu:        &connection.QueueMu,
+				GlobalDb:         connection.DB,
+				GlobalDbMu:       &database.DatabaseMu,
+				NumberOfCrawlers: MAXIMUM_NUMBER_OF_CRAWLERS,
+				CrawlIteration:   &crawlIteration,
 			}
+			connection.QueueMu.Unlock()
 
 			crawler.Crawl()
-
-			crawlerMu.Lock()
-			delete(crawlerQueues, fqdn)
-			crawlerMu.Unlock()
 		})
 	}
 

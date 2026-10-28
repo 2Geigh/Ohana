@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
 	"runtime/debug"
 	"slices"
@@ -17,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/2Geigh/Ohana/crawler/internal/connection"
+	"github.com/2Geigh/Ohana/crawler/internal/queue"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
 	"github.com/k3a/html2text"
@@ -134,268 +136,254 @@ var (
 		models.Url("https://ytmnd.com"),
 		models.Url("https://マリウス.com/"),
 		models.Url("https://猫.移动/webring/"),
-		models.Url("https://ourfavoritevoid.club"),
-		models.Url("procrastinators.org"),
 	}
 )
 
 type Crawler struct {
-	Id                *atomic.Int64
-	Queues            *Queues
-	Fqdn              models.Domain
-	CrawlerMu         *sync.Mutex
-	EmbeddedDbQueue   *sql.DB
-	EmbeddedDbQueueMu *sync.Mutex
-	GlobalDb          *sql.DB
-	GlobalDbMu        *sync.Mutex
-	NumberOfCrawlers  *atomic.Int64
-	CrawlIteration    *atomic.Int64
+	Id int
 
-	currentUrl models.Url // for debugging
-	checkpoint string     // for debugging
+	CrawlIteration   *atomic.Int64
+	Queue            *sql.DB
+	CrawlerMu        *sync.Mutex
+	GlobalDb         *sql.DB
+	GlobalDbMu       *sync.Mutex
+	NumberOfCrawlers int
 
-	currentPage        models.Webpage
-	degreeOfPoliteness int
-	politenessInterval time.Duration
-	recievedResponse   recievedResponse
+	currentPage              models.Webpage
+	hasLinksRemainingToCrawl bool
+	degreeOfPoliteness       int
+	politenessInterval       time.Duration
+	recievedResponse         recievedResponse
+
+	// for debugging
+	checkpoint     string
+	useCheckpoints bool
 }
 
-type Queues map[models.Domain][]models.Url
+func (c *Crawler) Crawl() {
+	// UNCOMMENT TO ENABLE DEBUGGING LOGGING
+	// c.useCheckpoints = true
 
-func (c Crawler) Crawl() {
+	c.degreeOfPoliteness = 0
+	c.politenessInterval = CRAWLER_STARTING_POLITENESS_INTERVAL
+	c.hasLinksRemainingToCrawl = true
+
+	for {
+		func() {
+
+			defer func() {
+				raisedError := recover()
+
+				if raisedError != nil {
+					log.Printf(
+						"[%s] PANICKED AFTER %q\npanic: %v\nstack trace:\n%s",
+						c.currentPage.Url,
+						c.checkpoint,
+						raisedError,
+						debug.Stack(),
+					)
+				}
+			}()
+
+			newLink, err := queue.Dequeue(c.Queue, c.CrawlerMu)
+
+			if strings.TrimSpace(string(newLink)) == "" || err != nil {
+				if err != sql.ErrNoRows {
+					c.logError("dequeue link failed", err)
+				}
+
+				secondsToWait := rand.Intn(5) + 1
+				time.Sleep(
+					time.Duration(secondsToWait) * time.Second,
+				)
+
+				return
+			}
+
+			err = c.processLink(newLink)
+			if err != nil {
+				c.logError("process link failed", err)
+			}
+		}()
+	}
+}
+
+func (c *Crawler) setCheckpoint(message string) {
+	c.checkpoint = message
+
+	if c.useCheckpoints {
+		log.Println(message)
+	}
+}
+
+func (c *Crawler) processLink(link models.Url) error {
 	var (
+		wg  sync.WaitGroup
 		err error
 	)
 
-	c.currentUrl = "void"
-	c.degreeOfPoliteness = 0
-	c.politenessInterval = CRAWLER_STARTING_POLITENESS_INTERVAL
+	c.currentPage = models.Webpage{}
+	c.setCheckpoint("set currentPage = models.Webpage{}")
 
-	defer func() {
+	c.recievedResponse = recievedResponse{}
+	c.setCheckpoint("set recievedResponse = recievedResponse{}")
+
+	c.currentPage.Url = link
+	c.setCheckpoint(fmt.Sprintf("set currentPage.Url = %s", link))
+
+	// e ** 3 is ~20
+	// 20 * 12 seconds is ~4 minutes
+	// If we're still getting status code 429 after 4 minutes it's not worth trying the domain
+	if c.degreeOfPoliteness > 3 {
+		return fmt.Errorf("this domain seems to be permablocking our requests")
+	}
+	c.setCheckpoint("check existing degree of politeness")
+
+	c.currentPage.IsDomainBlacklisted, err = c.currentPage.Url.GetDomain().GetFQDN().IsBlacklisted(
+		connection.DB, &database.DatabaseMu,
+	)
+	if err != nil {
+		return fmt.Errorf("determine domain blacklist status failed: %w", err)
+	}
+	if c.currentPage.IsDomainBlacklisted {
+		return fmt.Errorf("domain blacklisted: %w", err)
+	}
+	c.setCheckpoint("evaluated domain blacklist status")
+
+	c.currentPage.HasDomainBeenRequestedTooRecently, err = c.currentPage.
+		Url.GetDomain().GetFQDN().HasBeenRequestedTooRecently(
+		c.politenessInterval,
+		c.Queue,
+		c.CrawlerMu,
+	)
+	if err != nil {
+		return fmt.Errorf("determine necessary politeness failed: %w", err)
+	}
+	c.setCheckpoint("Determined domain crawling politeness status")
+	if c.currentPage.HasDomainBeenRequestedTooRecently {
+		c.waitPolitely()
+	}
+
+	response, err := http.Get(string(c.currentPage.Url))
+	if err != nil {
+		return fmt.Errorf("GET request unfulfilled: %w", err)
+	}
+
+	err = queue.UpdateTimeLastRequested(c.currentPage.Url, c.Queue, c.CrawlerMu)
+	if err != nil {
+		return fmt.Errorf("update time last requested for %s failed: %w", c.currentPage.Url, err)
+	}
+
+	c.recievedResponse = recievedResponse{
+		body: struct {
+			asReadCloser io.ReadCloser
+			asBytes      []byte
+		}{
+			asReadCloser: response.Body,
+		},
+		contentType:          response.Header.Get("Content-Type"),
+		statusCode:           response.StatusCode,
+		statusMessage:        response.Status,
+		wasRequestSuccessful: response.StatusCode >= 200 && response.StatusCode < 300,
+	}
+
+	if c.recievedResponse.statusCode == 429 {
+		c.waitPolitely()
+	} else if !c.recievedResponse.wasRequestSuccessful {
+		return fmt.Errorf("%s", c.recievedResponse.statusMessage)
+	}
+
+	c.recievedResponse.body.asBytes, err = io.ReadAll(response.Body)
+	if err != nil {
+		return fmt.Errorf("read response body failed: %w", err)
+	}
+
+	err = response.Body.Close()
+	if err != nil {
+		panic(fmt.Errorf("close response body failed: %w", err))
+	}
+
+	if !utf8.Valid(c.recievedResponse.body.asBytes) {
+		contentType := response.Header.Get("Content-Type")
+
+		reader, err := charset.NewReader(
+			bytes.NewReader(c.recievedResponse.body.asBytes),
+			contentType,
+		)
 		if err != nil {
-			c.Id.Add(-1)
-		}
-
-		raisedError := recover()
-
-		if raisedError != nil {
-			log.Printf(
-				"[%s] PANICKED AFTER %q\npanic: %v\nstack trace:\n%s",
-				c.currentUrl,
-				c.checkpoint,
-				raisedError,
-				debug.Stack(),
+			return fmt.Errorf("%s: %s: %w",
+				"UTF-8 transcoding failed",
+				"create byte reader failed (likely couldn't determine character encoding)",
+				err,
 			)
 		}
-	}()
 
-	// log.Println("Starting a crawl loop...")
-	for c.queueLength() > 0 {
-		// log.Println("Iterating over a crawl loop...")
-		c.currentPage = models.Webpage{}
-		c.recievedResponse = recievedResponse{}
-
-		c.CrawlerMu.Lock()
-		c.currentUrl = (*c.Queues).Dequeue(c.Fqdn)
-		// c.checkpoint = "Dequeued link"
-		// log.Println(c.checkpoint)
-		c.CrawlerMu.Unlock()
-
-		// e ** 3 is ~20
-		// 20 * 12 seconds is ~4 minutes
-		// If we're still getting status code 429 after 4 minutes it's not worth trying the domain
-		if c.degreeOfPoliteness > 3 {
-			continue
-		}
-
-		c.currentPage.Url = c.currentUrl
-		c.checkpoint = "set page.Url"
-		// log.Println(c.checkpoint)
-
-		c.currentPage.FullDomain = c.currentPage.Url.GetDomain()
-		c.checkpoint = "set page.FullDomain"
-		// log.Println(c.checkpoint)
-
-		c.currentPage.Fqdn = c.currentPage.FullDomain.GetFQDN()
-		c.checkpoint = "set page.Fqdn"
-		// log.Println(c.checkpoint)
-
-		c.currentPage.IsDomainBlacklisted, err = c.currentPage.Fqdn.IsBlacklisted(
-			connection.DB,
-			&database.DatabaseMu,
-		)
-		c.checkpoint = "Determined domain blacklist status"
-		// log.Println(c.checkpoint)
+		c.recievedResponse.body.asBytes, err = io.ReadAll(reader)
 		if err != nil {
-			c.logError("determine domain blacklist status failed", err)
-			continue
-		}
-		if c.currentPage.IsDomainBlacklisted {
-			c.logError("domain blacklisted", err)
-			continue
-		}
+			return fmt.Errorf("UTF-8 transcoding failed: conversion failed: %w", err)
 
-		c.currentPage.HasDomainBeenRequestedTooRecently, err = c.currentPage.
-			Fqdn.HasBeenRequestedTooRecently(
-			c.politenessInterval,
-			&database.DatabaseMu,
-			connection.DB,
-		)
-		c.checkpoint = "Determined domain crawling politeness status"
-		// log.Println(c.checkpoint)
-		if err != nil {
-			c.logError("determine necessary politeness failed", err)
-			continue
-		}
-		if c.currentPage.HasDomainBeenRequestedTooRecently {
-			c.waitPolitely()
-			continue
-		}
-
-		response, err := http.Get(string(c.currentUrl))
-		if err != nil {
-			c.logError("GET request unfulfilled", err)
-			continue
-		}
-
-		c.recievedResponse = recievedResponse{
-			body: struct {
-				asReadCloser io.ReadCloser
-				asBytes      []byte
-			}{
-				asReadCloser: response.Body,
-			},
-			contentType:          response.Header.Get("Content-Type"),
-			statusCode:           response.StatusCode,
-			statusMessage:        response.Status,
-			wasRequestSuccessful: response.StatusCode >= 200 && response.StatusCode < 300,
-		}
-
-		if c.recievedResponse.statusCode == 429 {
-			c.waitPolitely()
-			continue
-		}
-
-		if !c.recievedResponse.wasRequestSuccessful {
-			c.logError(c.recievedResponse.statusMessage, nil)
-			continue
-		}
-
-		c.recievedResponse.body.asBytes, err = io.ReadAll(response.Body)
-		if err != nil {
-			c.logError("read response body failed", err)
-			continue
-		}
-		err = response.Body.Close()
-		if err != nil {
-			panic(fmt.Errorf("close response body failed: %w", err))
 		}
 
 		if !utf8.Valid(c.recievedResponse.body.asBytes) {
-			contentType := response.Header.Get("Content-Type")
-
-			reader, err := charset.NewReader(
-				bytes.NewReader(c.recievedResponse.body.asBytes),
-				contentType,
-			)
-			if err != nil {
-				c.logError("UTF-8 transcoding failed: create byte reader failed (likely couldn't determine character encoding)", err)
-				continue
-			}
-
-			c.recievedResponse.body.asBytes, err = io.ReadAll(reader)
-			if err != nil {
-				c.logError("UTF-8 transcoding failed: conversion failed", err)
-				continue
-			}
-
-			if !utf8.Valid(c.recievedResponse.body.asBytes) {
-				c.logError("UTF-8 transcoding failed: still non-UTF-8 after conversion", err)
-				continue
-			}
+			return fmt.Errorf("UTF-8 transcoding failed: still non-UTF-8 after conversion: %w", err)
 		}
+	}
 
-		if !c.recievedResponse.isReadableText() {
-			c.logError("page content isn't text-based", nil)
-			continue
-		}
+	if !c.recievedResponse.isReadableText() {
+		return fmt.Errorf("page content isn't text-based")
+	}
 
-		c.currentPage.ResponseBody = string(c.recievedResponse.body.asBytes)
-		c.checkpoint = "set page.ResponseBody"
+	c.currentPage.ResponseBody = string(c.recievedResponse.body.asBytes)
+	c.setCheckpoint("set page.ResponseBody")
 
-		doc, err := html.Parse(
-			strings.NewReader(string(c.recievedResponse.body.asBytes)),
-		)
-		if err != nil {
-			c.logError("parse HTML failed", err)
-			continue
-		}
+	doc, err := html.Parse(
+		strings.NewReader(string(c.recievedResponse.body.asBytes)),
+	)
+	if err != nil {
+		return fmt.Errorf("parse HTML failed: %w", err)
+	}
 
+	wg.Go(func() {
+		c.currentPage.Title = c.parsePageTitle(doc)
+		c.setCheckpoint("set page.Title")
+	})
+	wg.Go(func() {
+		c.currentPage.Description = c.parsePageDescription(doc)
+		c.setCheckpoint("set page.Description")
+	})
+	wg.Go(func() {
+		c.currentPage.Text = c.parsePageText(string(c.recievedResponse.body.asBytes))
+		c.setCheckpoint("set page.Text")
+	})
+	wg.Go(func() {
 		// We do this instantiation step using `make`
 		// So that if len(page.Outneighbours) == 0,
 		// Postgres will read it as an empty array
 		// Instead of as a NULL value
 		c.currentPage.Outneighbours = make([]models.Url, 0)
-		c.currentPage.Outneighbours = append(
-			c.currentPage.Outneighbours,
-			c.findHyperlinks(doc, c.currentUrl)...,
+		c.currentPage.Outneighbours = append(c.currentPage.Outneighbours,
+			c.findHyperlinks(doc, c.currentPage.Url)...,
 		)
-		err = database.EnqueueLinks(
-			c.currentPage.Outneighbours,
-			connection.Queue,
-			&connection.QueueMu,
-			connection.DB,
-		)
-		if err != nil {
-			c.logError("enqueue failed", err)
-			continue
-		}
+	})
+	wg.Wait()
 
-		var wg sync.WaitGroup
-		wg.Go(func() {
-			c.currentPage.Title = c.parsePageTitle(doc)
-			c.checkpoint = "set page.Title"
-		})
-		wg.Go(func() {
-			c.currentPage.Description = c.parsePageDescription(doc)
-			c.checkpoint = "set page.Description"
-		})
-		wg.Go(func() {
-			c.currentPage.Text = c.parsePageText(string(c.recievedResponse.body.asBytes))
-			c.checkpoint = "set page.Text"
-		})
-		wg.Wait()
-
-		c.currentPage.IsFediverseNode, err = c.isPageOnFediverse()
-		if err != nil {
-			c.logError("determine fediverse participation status failed", err)
-			continue
-		}
-
-		err = c.currentPage.Save(connection.DB)
-		if err != nil {
-			c.logError("save to database failed", err)
-			continue
-		}
-
-		err = c.currentPage.EnqueueToIndexer(connection.DB, &database.DatabaseMu)
-		if err != nil {
-			c.logError("enqueue to indexer failed", err)
-			continue
-		}
-
-		func() {
-			c.CrawlerMu.Lock()
-			defer c.CrawlerMu.Unlock()
-
-			_ = c.CrawlIteration.Add(1)
-			err = nil
-			c.logCrawlCompletion()
-		}()
+	err = queue.Enqueue(c.Queue, c.CrawlerMu, c.currentPage.Outneighbours)
+	if err != nil {
+		return fmt.Errorf("enqueue failed: %w", err)
 	}
+
+	err = c.currentPage.Save(connection.DB)
+	if err != nil {
+		return fmt.Errorf("save to database failed: %w", err)
+	}
+
+	_ = c.CrawlIteration.Add(1)
+	c.logCrawlCompletion()
+
+	return nil
 }
 
-func (c Crawler) findHyperlinks(root_node *html.Node, root_url models.Url) []models.Url {
+func (c *Crawler) findHyperlinks(root_node *html.Node, root_url models.Url) []models.Url {
 	var (
 		hyperlinks []models.Url
 	)
@@ -480,18 +468,18 @@ func (c Crawler) findHyperlinks(root_node *html.Node, root_url models.Url) []mod
 	return hyperlinks
 }
 
-func (c Crawler) isPageOnFediverse() (bool, error) {
+func (c *Crawler) isPageOnFediverse() (bool, error) {
 	// TODO: IMPLEMENT THIS FUNCTION USING DATA FROM:
 	// https://nodes.fediverse.party/
 
 	return false, nil
 }
 
-func (c Crawler) logCrawlCompletion() {
+func (c *Crawler) logCrawlCompletion() {
 	log.Println(c.runtimeStats())
 }
 
-func (c Crawler) logError(message string, err error) {
+func (c *Crawler) logError(message string, err error) {
 	if err == nil {
 		log.Printf("%s %s", c.runtimeStats(), message)
 		return
@@ -500,7 +488,7 @@ func (c Crawler) logError(message string, err error) {
 	log.Printf("%s %s: %v", c.runtimeStats(), message, err)
 }
 
-func (c Crawler) parsePageDescription(root_node *html.Node) string {
+func (c *Crawler) parsePageDescription(root_node *html.Node) string {
 	var (
 		pageDescription string
 	)
@@ -542,11 +530,11 @@ func (c Crawler) parsePageDescription(root_node *html.Node) string {
 		break
 	}
 
-	c.checkpoint = "set page.Description"
+	c.setCheckpoint("set page.Description")
 	return pageDescription
 }
 
-func (c Crawler) parsePageText(html string) string {
+func (c *Crawler) parsePageText(html string) string {
 	pageText := html2text.HTML2TextWithOptions(html, html2text.WithLinksInnerText())
 
 	pageTextWithWhitespaceSquashed := strings.Join(strings.Fields(pageText), " ")
@@ -554,7 +542,7 @@ func (c Crawler) parsePageText(html string) string {
 	return strings.TrimSpace(pageTextWithWhitespaceSquashed)
 }
 
-func (c Crawler) parsePageTitle(root_node *html.Node) string {
+func (c *Crawler) parsePageTitle(root_node *html.Node) string {
 	var (
 		pageTitle string
 	)
@@ -608,56 +596,37 @@ func (c Crawler) parsePageTitle(root_node *html.Node) string {
 		}
 	}
 
-	c.checkpoint = "set page.Title"
+	c.setCheckpoint("set page.Title")
 	return pageTitle
 }
 
-func (c Crawler) queueLength() int {
-	c.CrawlerMu.Lock()
-	defer c.CrawlerMu.Unlock()
+func (c *Crawler) runtimeStats() string {
+	var numberOfLinksLeftForCurrentCrawler int64
 
-	return len((*c.Queues)[c.Fqdn])
-}
+	_ = c.Queue.QueryRow(
+		`SELECT count(*)
+		FROM crawler_queue
+		WHERE ownerCrawlerId = ?;
+		`, c.Id,
+	).Scan(&numberOfLinksLeftForCurrentCrawler)
 
-func (c Crawler) runtimeStats() string {
-	// c.CrawlerMu.Lock()
-	// defer c.CrawlerMu.Unlock()
-
-	return fmt.Sprintf("(Q=%d, n=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
-		len(*c.Queues), // number of unique domains queued in memory
-		c.NumberOfCrawlers.Load(),
-		len((*c.Queues)[c.Fqdn]),
+	return fmt.Sprintf("(n=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
+		c.NumberOfCrawlers,
+		numberOfLinksLeftForCurrentCrawler,
 		c.CrawlIteration.Load(),
-		c.Id.Load(),
-		c.currentPage.Fqdn,
+		c.Id,
+		c.currentPage.Url.GetDomain().GetFQDN(),
 		c.currentPage.Url,
 	)
 }
 
-func (c Crawler) waitPolitely() {
+func (c *Crawler) waitPolitely() {
 	time.Sleep(c.politenessInterval)
 
 	c.degreeOfPoliteness += 1
 	c.politenessInterval = time.Duration(
 		float64(CRAWLER_STARTING_POLITENESS_INTERVAL) * math.Exp(float64(c.degreeOfPoliteness)),
 	)
-}
-
-func (queues Queues) Dequeue(fqdn models.Domain) models.Url {
-
-	if len(queues[fqdn]) < 1 {
-		return models.Url("")
-	}
-
-	toReturn := queues[fqdn][0]
-
-	if len(queues[fqdn]) == 1 {
-		queues[fqdn] = []models.Url{}
-	} else {
-		queues[fqdn] = queues[fqdn][1:]
-	}
-
-	return toReturn
 }
 
 type recievedResponse struct {
