@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import { FC } from "react";
+import { FC, JSX } from "react";
 import { CONSTANTS } from "../page";
 import { connection } from "next/server";
 import sql from "@/lib/db/db";
+import { text } from "stream/consumers";
 
 // This lets NextJS know that this page shouldn't be expected to load instantaneously
 // This helps the page rendering be deterministic
@@ -11,6 +12,15 @@ export const instant = false;
 async function sleep(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
+
+type SearchResult = {
+  id: Number;
+  score: Number;
+  title: string;
+  description: string;
+  page_text: string;
+  link: string;
+};
 
 type SearchProps = {
   searchParams: Promise<{
@@ -32,17 +42,53 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
   await connection();
   const startTime = performance.now();
 
-  const results = await sql`
+  const results: SearchResult[] = await sql`
         SELECT
-      pdb.score(id),
-      title,
-      description,
-      link
-    FROM pages
-    WHERE description ||| ${query!}::text
-    ORDER BY score DESC
-    LIMIT 10;
+          id,
+          pdb.score(id) AS score,
+          title,
+          description,
+          page_text,
+          link
+        FROM pages
+        WHERE
+          title       ||| ${query!}::text
+          OR description ||| ${query!}::text
+          OR page_text ||| ${query!}::text
+        ORDER BY
+          CASE
+            WHEN title       ||| ${query!}::text THEN 1
+            WHEN description ||| ${query!}::text THEN 2
+            ELSE 3
+          END ASC,
+          score DESC
+        LIMIT 10;
 `;
+
+  const ResultsLi: JSX.Element[] = results.map((result) => {
+    const MAXIMUM_DISPLAYED_DESCRIPTION_LENGTH = 50; // characters
+
+    return (
+      <li>
+        <h3>
+          <a href={result.link}>{result.title}</a>
+        </h3>
+        <p>
+          {result.description.substring(
+            0,
+            MAXIMUM_DISPLAYED_DESCRIPTION_LENGTH,
+          )}
+          {/* replace the following conditional with tailwindcss text-overflow instead, ideally */}
+          {result.description.length > MAXIMUM_DISPLAYED_DESCRIPTION_LENGTH
+            ? "..."
+            : ""}
+        </p>
+        <a href={result.link}>
+          {result.link} <span>{String(result.score)}</span>
+        </a>
+      </li>
+    );
+  });
 
   const searchDuration = performance.now() - startTime;
 
@@ -52,7 +98,9 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
   return (
     <main>
       <section>
-        <h1>Ohana</h1>
+        <h1>
+          <a href="/">Ohana</a>
+        </h1>
         <form action="/search" method="GET">
           <input
             type="text"
@@ -67,6 +115,7 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
       </section>
       <section>
         Returned {numberOfResults} results in {Math.round(searchDuration)} ms.
+        <ul>{ResultsLi}</ul>
       </section>
     </main>
   );
