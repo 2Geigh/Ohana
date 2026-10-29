@@ -42,7 +42,7 @@ func init() {
 	log.Println("Enqueing seed URLs...")
 
 	for _, url := range crawling.SeedURLs {
-		err := queue.Enqueue(connection.Queue, &connection.QueueMu, []models.Url{url})
+		err := queue.Enqueue(connection.Queue, &connection.QueueMu, []models.Url{url}, 999999999)
 		if err != nil {
 			log.Fatalf("enqueue seed URLs failed: %v", err)
 		}

@@ -18,9 +18,9 @@ language.
 
 ### v 1.0
 
-- [ ] Fully functional web crawler
+- [x] Fully functional web crawler
   - [x] Non-pornographic domain blocklist
-  - [ ] Upper bounds on site quantity based on arbitrary target
+  - [x] Upper bounds on site quantity based on arbitrary target
   - [x] Embedded SQLite queue for BFS
   - [x] Give embedded SQLite queue a Docker volume for data persistence across restarts
   - [x] Move domain-based crawler-specific enqueing from RAM to SQLite (perhaps add a column to the queue with the crawler ID the domain belongs to for tracking purposes?) 

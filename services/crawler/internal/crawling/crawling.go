@@ -33,6 +33,12 @@ const (
 
 	// How long the crawler keeps ignoring a re-encountered page after crawling it
 	CRAWLER_OLDNESS_THRESHOLD time.Duration = 24 * time.Hour //
+
+	// One million webpages
+	MAXIMUM_QUEUE_LENGTH = 1000000
+
+	// Fifty thousand websites
+	MAXIMUM_DATABASE_WEBSITE_CAPACITY = 50000
 )
 
 var (
@@ -379,12 +385,12 @@ func (c *Crawler) processLink(link models.Url) error {
 		c.findHyperlinks(doc, c.currentPage.Url)...,
 	)
 
-	err = queue.Enqueue(c.Queue, c.CrawlerMu, c.currentPage.Outneighbours)
+	err = queue.Enqueue(c.Queue, c.CrawlerMu, c.currentPage.Outneighbours, MAXIMUM_QUEUE_LENGTH)
 	if err != nil {
 		return fmt.Errorf("enqueue failed: %w", err)
 	}
 
-	err = c.currentPage.Save(connection.DB)
+	err = c.currentPage.Save(connection.DB, c.CrawlerMu, MAXIMUM_DATABASE_WEBSITE_CAPACITY)
 	if err != nil {
 		return fmt.Errorf("save to database failed: %w", err)
 	}
@@ -613,7 +619,12 @@ func (c *Crawler) parsePageTitle(root_node *html.Node) string {
 }
 
 func (c *Crawler) runtimeStats() string {
-	var numberOfLinksLeftForCurrentDomain int64
+	var (
+		queueLength                       int64
+		numberOfLinksLeftForCurrentDomain int64
+	)
+
+	c.CrawlerMu.Lock()
 
 	_ = c.Queue.QueryRow(
 		`SELECT count(*)
@@ -623,8 +634,16 @@ func (c *Crawler) runtimeStats() string {
 		`, c.currentPage.Url.GetDomain().GetFQDN(),
 	).Scan(&numberOfLinksLeftForCurrentDomain)
 
-	return fmt.Sprintf("(n=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
+	_ = c.Queue.QueryRow(
+		`SELECT count(*)
+		FROM crawler_queue;`,
+	).Scan(&queueLength)
+
+	c.CrawlerMu.Unlock()
+
+	return fmt.Sprintf("(n=%d, L=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
 		c.NumberOfCrawlers,
+		queueLength,
 		numberOfLinksLeftForCurrentDomain,
 		c.CrawlIteration.Load(),
 		c.Id,

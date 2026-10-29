@@ -89,9 +89,23 @@ func UpdateTimeLastRequested(url models.Url, queue *sql.DB, mu *sync.Mutex, isUs
 	return nil
 }
 
-func Enqueue(queue *sql.DB, mu *sync.Mutex, links []models.Url) error {
+func Enqueue(queue *sql.DB, mu *sync.Mutex, links []models.Url, maximum_queue_length int) error {
 	mu.Lock()
 	defer mu.Unlock()
+
+	var queueLength int64
+	err := queue.QueryRow(
+		`SELECT count(*)
+		FROM crawler_queue;`,
+	).Scan(&queueLength)
+	if err != nil {
+		log.Println("SELECT cout(*) FROM crawler_queue:", err)
+		return fmt.Errorf("check crawler_queue length failed :w", err)
+	}
+
+	if queueLength > int64(maximum_queue_length) {
+		return fmt.Errorf("maximum queue length reached")
+	}
 
 	tx, err := queue.Begin()
 	if err != nil {
