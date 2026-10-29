@@ -26,7 +26,7 @@ func init() {
 	log.Println("Connecting to embedded queue...")
 	log.Println("Successfully connected to embedded queue.")
 
-	connection.Queue, err = sql.Open("sqlite3", "/data/queue/queue.db")
+	connection.Queue, err = sql.Open("sqlite3", connection.QUEUE_SQLITE_CONNECTION_PATH)
 	if err != nil {
 		log.Fatalf("connect to embedded queue failed: %v", err)
 	}

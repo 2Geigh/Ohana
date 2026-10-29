@@ -24,10 +24,10 @@ services:
                         POSTGRES_USER: ${DB_USERNAME}
                         POSTGRES_PASSWORD: ${DB_PASSWORD}
                         POSTGRES_DB: ${DB_NAME}
-                        PGDATA: /var/lib/ohana
+                        PGDATA: /var/lib/ohana/db
                         POSTGRES_PORT: ${DB_CONTAINER_PORT}
                 volumes:
-                        - db-data:/var/lib/ohana
+                        - db-data:/var/lib/ohana/db
                 healthcheck:
                         test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
                         interval: 1s
@@ -67,6 +67,8 @@ services:
                         context: ./services
                         dockerfile: ./crawler/build/dockerfile
                 container_name: ohana-crawler
+                volumes:
+                        - crawler_queue:/var/lib/ohana/crawler
                 depends_on:
                         db-init:
                                 condition: service_completed_successfully
@@ -89,4 +91,4 @@ services:
 
 volumes:
         db-data:
-        index-data:
+        crawler_queue:
