@@ -234,7 +234,7 @@ func (c *Crawler) processLink(link models.Url) error {
 	// e ** 3 is ~20
 	// 20 * 12 seconds is ~4 minutes
 	// If we're still getting status code 429 after 4 minutes it's not worth trying the domain
-	if c.degreeOfPoliteness > 3 {
+	if c.degreeOfPoliteness > 5 {
 		return fmt.Errorf("this domain seems to be permablocking our requests")
 	}
 	c.setCheckpoint("check existing degree of politeness")
@@ -306,6 +306,7 @@ func (c *Crawler) processLink(link models.Url) error {
 	}
 
 	if c.recievedResponse.statusCode == 429 {
+		c.increasePoliteness()
 		c.waitPolitely()
 	} else if !c.recievedResponse.wasRequestSuccessful {
 		return fmt.Errorf("%s", c.recievedResponse.statusMessage)
@@ -643,15 +644,15 @@ func (c *Crawler) waitPolitely() {
 
 	time.Sleep(c.politenessInterval)
 
-	if c.degreeOfPoliteness < 5 {
-		c.degreeOfPoliteness += 1
-	}
-
 	c.politenessInterval = time.Duration(
 		float64(CRAWLER_STARTING_POLITENESS_INTERVAL) * math.Exp(float64(c.degreeOfPoliteness)),
 	)
 
 	c.setCheckpoint(fmt.Sprintf("Waited politely (NEW degree = %d)...", c.degreeOfPoliteness))
+}
+
+func (c *Crawler) increasePoliteness() {
+	c.degreeOfPoliteness += 1
 }
 
 type recievedResponse struct {
