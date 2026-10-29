@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -13,10 +14,6 @@ import (
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
-)
-
-const (
-	MAXIMUM_NUMBER_OF_CRAWLERS = 20
 )
 
 func init() {
@@ -58,9 +55,15 @@ func main() {
 		wg sync.WaitGroup
 
 		crawlIteration atomic.Int64
+
+		MAXIMUM_NUMBER_OF_CRAWLERS = 1
 	)
 
 	defer connection.DB.Close()
+
+	log.Printf("%d logical CPUs found for the current process", runtime.NumCPU())
+	log.Printf("Instantiating %d crawler worker processes...", runtime.NumCPU())
+	MAXIMUM_NUMBER_OF_CRAWLERS = runtime.NumCPU()
 
 	wg.Go(func() {
 		for {
