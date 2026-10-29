@@ -390,7 +390,7 @@ func (c *Crawler) processLink(link models.Url) error {
 		return fmt.Errorf("enqueue failed: %w", err)
 	}
 
-	err = c.currentPage.Save(connection.DB, c.CrawlerMu)
+	err = c.currentPage.Save(connection.DB, c.CrawlerMu, MAXIMUM_DATABASE_WEBSITE_CAPACITY)
 	if err != nil {
 		return fmt.Errorf("save to database failed: %w", err)
 	}

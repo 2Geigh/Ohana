@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -38,6 +39,22 @@ func (page *Webpage) Save(
 ) error {
 	mu.Lock()
 	defer mu.Unlock()
+
+	var numberOfWebsites int64
+	err := db.QueryRow(
+		`SELECT count(*)
+		FROM sites;`,
+	).Scan(&numberOfWebsites)
+	if err != nil {
+		return fmt.Errorf("SELECT count(*) FROM sites failed: %w", err)
+	}
+
+	if numberOfWebsites > int64(max_number_of_websites) {
+		err = fmt.Errorf("Maximum quantity of websites in database reached")
+
+		log.Fatal(err)
+		return err
+	}
 
 	if len(page.Url.GetDomain()) == 0 {
 		return fmt.Errorf("domain empty")
