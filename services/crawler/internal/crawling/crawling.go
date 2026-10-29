@@ -620,18 +620,19 @@ func (c *Crawler) parsePageTitle(root_node *html.Node) string {
 }
 
 func (c *Crawler) runtimeStats() string {
-	var numberOfLinksLeftForCurrentCrawler int64
+	var numberOfLinksLeftForCurrentDomain int64
 
 	_ = c.Queue.QueryRow(
 		`SELECT count(*)
 		FROM crawler_queue
-		WHERE ownerCrawlerId = ?;
-		`, c.Id,
-	).Scan(&numberOfLinksLeftForCurrentCrawler)
+		LEFT JOIN domains ON domains.id == crawler_queue.domain_id
+		WHERE domains.fqdn = ?;
+		`, c.currentPage.Url.GetDomain().GetFQDN(),
+	).Scan(&numberOfLinksLeftForCurrentDomain)
 
 	return fmt.Sprintf("(n=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
 		c.NumberOfCrawlers,
-		numberOfLinksLeftForCurrentCrawler,
+		numberOfLinksLeftForCurrentDomain,
 		c.CrawlIteration.Load(),
 		c.Id,
 		c.currentPage.Url.GetDomain().GetFQDN(),
@@ -678,7 +679,7 @@ func (r recievedResponse) isReadableText() bool {
 		}
 	}
 
-	log.Println("actual content-type:", r.contentType)
+	// log.Println("actual content-type:", r.contentType)
 	return false
 }
 
