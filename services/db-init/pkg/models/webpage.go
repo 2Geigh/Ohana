@@ -1,4 +1,4 @@
-package models
+package modelswebpage
 
 import (
 	"database/sql"
@@ -33,7 +33,11 @@ type (
 
 func (page *Webpage) Save(
 	db *sql.DB,
+	mu *sync.Mutex,
+	max_number_of_websites int,
 ) error {
+	mu.Lock()
+	defer mu.Unlock()
 
 	if len(page.Url.GetDomain()) == 0 {
 		return fmt.Errorf("domain empty")
