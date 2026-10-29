@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"math"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -62,8 +63,12 @@ func main() {
 	defer connection.DB.Close()
 
 	log.Printf("%d logical CPUs found for the current process", runtime.NumCPU())
-	log.Printf("Instantiating %d crawler worker processes...", runtime.NumCPU())
-	MAXIMUM_NUMBER_OF_CRAWLERS = runtime.NumCPU()
+
+	MAXIMUM_NUMBER_OF_CRAWLERS = int(math.Floor(float64(
+		runtime.NumCPU()) / 2,
+	))
+
+	log.Printf("Instantiating %d crawler worker processes...", MAXIMUM_NUMBER_OF_CRAWLERS)
 
 	wg.Go(func() {
 		for {
