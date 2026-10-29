@@ -385,7 +385,7 @@ func (c *Crawler) processLink(link models.Url) error {
 		c.findHyperlinks(doc, c.currentPage.Url)...,
 	)
 
-	err = queue.Enqueue(c.Queue, c.CrawlerMu, c.currentPage.Outneighbours)
+	err = queue.Enqueue(c.Queue, c.CrawlerMu, c.currentPage.Outneighbours, MAXIMUM_QUEUE_LENGTH)
 	if err != nil {
 		return fmt.Errorf("enqueue failed: %w", err)
 	}
@@ -619,7 +619,12 @@ func (c *Crawler) parsePageTitle(root_node *html.Node) string {
 }
 
 func (c *Crawler) runtimeStats() string {
-	var numberOfLinksLeftForCurrentDomain int64
+	var (
+		queueLength                       int64
+		numberOfLinksLeftForCurrentDomain int64
+	)
+
+	c.CrawlerMu.Lock()
 
 	_ = c.Queue.QueryRow(
 		`SELECT count(*)
@@ -629,8 +634,16 @@ func (c *Crawler) runtimeStats() string {
 		`, c.currentPage.Url.GetDomain().GetFQDN(),
 	).Scan(&numberOfLinksLeftForCurrentDomain)
 
-	return fmt.Sprintf("(n=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
+	_ = c.Queue.QueryRow(
+		`SELECT count(*)
+		FROM crawler_queue;`,
+	).Scan(&queueLength)
+
+	c.CrawlerMu.Unlock()
+
+	return fmt.Sprintf("(n=%d, L=%d, l=%d, i=%d) {id=%d}【%s】[%s]",
 		c.NumberOfCrawlers,
+		queueLength,
 		numberOfLinksLeftForCurrentDomain,
 		c.CrawlIteration.Load(),
 		c.Id,
