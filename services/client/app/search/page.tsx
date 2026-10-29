@@ -3,15 +3,10 @@ import { FC, JSX } from "react";
 import { CONSTANTS } from "../page";
 import { connection } from "next/server";
 import sql from "@/lib/db/db";
-import { text } from "stream/consumers";
 
 // This lets NextJS know that this page shouldn't be expected to load instantaneously
 // This helps the page rendering be deterministic
 export const instant = false;
-
-async function sleep(milliseconds: number) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
 
 type SearchResult = {
   id: Number;
@@ -52,9 +47,9 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
           link
         FROM pages
         WHERE
-          title       ||| ${query!}::text
+          title          ||| ${query!}::text
           OR description ||| ${query!}::text
-          OR page_text ||| ${query!}::text
+          OR page_text   ||| ${query!}::text
         ORDER BY
           CASE
             WHEN title       ||| ${query!}::text THEN 1
@@ -69,7 +64,7 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
     const MAXIMUM_DISPLAYED_DESCRIPTION_LENGTH = 50; // characters
 
     return (
-      <li>
+      <li key={result.id}>
         <h3>
           <a href={result.link}>{result.title}</a>
         </h3>
