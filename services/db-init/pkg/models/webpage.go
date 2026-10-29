@@ -1,4 +1,4 @@
-package modelswebpage
+package models
 
 import (
 	"database/sql"
