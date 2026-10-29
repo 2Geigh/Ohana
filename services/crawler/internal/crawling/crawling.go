@@ -218,7 +218,6 @@ func (c *Crawler) setCheckpoint(message string) {
 
 func (c *Crawler) processLink(link models.Url) error {
 	var (
-		wg  sync.WaitGroup
 		err error
 	)
 
@@ -362,29 +361,23 @@ func (c *Crawler) processLink(link models.Url) error {
 		return fmt.Errorf("parse HTML failed: %w", err)
 	}
 
-	wg.Go(func() {
-		c.currentPage.Title = c.parsePageTitle(doc)
-		c.setCheckpoint("set page.Title")
-	})
-	wg.Go(func() {
-		c.currentPage.Description = c.parsePageDescription(doc)
-		c.setCheckpoint("set page.Description")
-	})
-	wg.Go(func() {
-		c.currentPage.Text = c.parsePageText(string(c.recievedResponse.body.asBytes))
-		c.setCheckpoint("set page.Text")
-	})
-	wg.Go(func() {
-		// We do this instantiation step using `make`
-		// So that if len(page.Outneighbours) == 0,
-		// Postgres will read it as an empty array
-		// Instead of as a NULL value
-		c.currentPage.Outneighbours = make([]models.Url, 0)
-		c.currentPage.Outneighbours = append(c.currentPage.Outneighbours,
-			c.findHyperlinks(doc, c.currentPage.Url)...,
-		)
-	})
-	wg.Wait()
+	c.currentPage.Title = c.parsePageTitle(doc)
+	c.setCheckpoint("set page.Title")
+
+	c.currentPage.Description = c.parsePageDescription(doc)
+	c.setCheckpoint("set page.Description")
+
+	c.currentPage.Text = c.parsePageText(string(c.recievedResponse.body.asBytes))
+	c.setCheckpoint("set page.Text")
+
+	// We do this instantiation step using `make`
+	// So that if len(page.Outneighbours) == 0,
+	// Postgres will read it as an empty array
+	// Instead of as a NULL value
+	c.currentPage.Outneighbours = make([]models.Url, 0)
+	c.currentPage.Outneighbours = append(c.currentPage.Outneighbours,
+		c.findHyperlinks(doc, c.currentPage.Url)...,
+	)
 
 	err = queue.Enqueue(c.Queue, c.CrawlerMu, c.currentPage.Outneighbours)
 	if err != nil {
