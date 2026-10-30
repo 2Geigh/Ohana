@@ -33,6 +33,7 @@ services:
                         interval: 1s
                         timeout: 5s
                         retries: 100
+                restart: unless-stopped
 
         db-init:
                 networks:
@@ -46,6 +47,7 @@ services:
                                 condition: service_healthy
                 env_file:
                         - ./.env
+                restart: on-failure 
 
         db-janitor:
                 networks:
@@ -59,6 +61,7 @@ services:
                                 condition: service_completed_successfully
                 env_file:
                         - ./.env
+                restart: unless-stopped
 
         crawler:
                 networks:
@@ -74,6 +77,7 @@ services:
                                 condition: service_completed_successfully
                 env_file:
                         - ./.env
+                restart: unless-stopped
 
         client:
                 container_name: ohana-client
@@ -87,6 +91,7 @@ services:
                         - "3020:3000"
                 env_file:
                         - ./.env
+                restart: unless-stopped
 
 
 volumes:
