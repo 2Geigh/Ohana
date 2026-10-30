@@ -121,7 +121,8 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
       <hr className="text-gray-400 mb-6" />
       <section>
         <span>
-          Returned {numberOfResults} results in {Math.round(searchDuration)} ms.
+          Returned {numberOfResults} results in{" "}
+          {Math.round(searchDuration) / 1000} s.
         </span>
         <ul>{ResultsLi}</ul>
       </section>
