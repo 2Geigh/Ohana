@@ -3236,5 +3236,6 @@ zillow.com
 ziprecruiter.com
 zmenu.com
 zoom.com
+zoom.us
 zoominfo.com
 zukunftswerkstatt.de
