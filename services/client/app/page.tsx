@@ -10,12 +10,12 @@ export default function Home() {
     <main className="h-full flex flex-column justify-center items-center bg-white dark:bg-black">
       <section id="hero" className="flex flex-col justify-center items-center">
         <header className="text-center mb-5 select-none">
-          <h1 className="text-5xl font-serif font-normal tracking-wide uppercase">
+          <h1 className="text-5xl font-serif font-normal tracking-wide uppercase mb-1">
             Ohana
           </h1>
           <h2 className="font-sans text-lg leading-tight">
             Surf the <em className="underline tracking-wide">living</em> web
-            <noscript>{/* <br /> */} without Javascript</noscript>.
+            <noscript> without Javascript</noscript>.
           </h2>
         </header>
 
