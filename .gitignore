@@ -18,16 +18,7 @@
 /services/query_engine/.idea/.idea.query_engine.dir/.idea
 /.vscode
 /services/db-janitor/bin
-/services/crawler/.DS_Store
 /.DS_Store
 /services/.DS_Store
+/services/crawler/.DS_Store
 /services/crawler/internal/.DS_Store
-/services/client/.settings
-/services/client/.project
-/services/client/.metals
-/services/client/.classpath
-/services/client/.bloop
-/services/client/target
-/services/client/src/main/java/com/nicholasgarcia/ohana/client/.conform.4612659.App.java.orig
-/services/client/src/main/java/com/nicholasgarcia/ohana/client/.conform.4938211.App.java.orig
-/services/client/src/main/java/com/nicholasgarcia/ohana/client/controllers/.conform.3804170.Home.java.orig
