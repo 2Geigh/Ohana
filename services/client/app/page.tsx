@@ -10,7 +10,7 @@ export default function Home() {
     <main className="h-full flex flex-column justify-center items-center bg-white dark:bg-black">
       <section id="hero" className="flex flex-col justify-center items-center">
         <header className="text-center mb-8 select-none">
-          <h1 className="text-6xl font-serif font-normal tracking-wide uppercase mb-1 dark:text-gray-200">
+          <h1 className="text-5xl font-serif font-normal tracking-wide uppercase mb-1 dark:text-gray-200">
             Ohana
           </h1>
           <h2 className="font-sans text-lg leading-tight dark:text-gray-200 dark:font-light">
