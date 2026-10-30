@@ -3,11 +3,6 @@ import { FC, JSX } from "react";
 import { CONSTANTS } from "../page";
 import { connection } from "next/server";
 import sql from "@/lib/db/db";
-import { Span } from "next/dist/trace";
-
-// This lets NextJS know that this page shouldn't be expected to load instantaneously
-// This helps the page rendering be deterministic
-export const instant = false;
 
 type SearchResult = {
   id: Number;
