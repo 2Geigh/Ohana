@@ -62,11 +62,13 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
           href={result.link}
           className="h-full w-full overflow-ellipsis"
         >
-          <h3 className="font-bold text-blue-800 mb-2">{result.title}</h3>
+          <h3 className="font-bold text-blue-800 dark:text-emerald-300 mb-2">
+            {result.title}
+          </h3>
           <p>{result.description}</p>
-          <span className="text-gray-500 w-full flex flex-row justify-between items-end mt-2 select-none">
+          <span className="text-gray-500 dark:text-gray-300 w-full flex flex-row justify-between items-end mt-2 select-none">
             <span className="italic select-text">{result.link}</span>
-            <span className="text-gray-300">
+            <span className="text-gray-300 dark:text-gray-500">
               {String(Math.round(result.score * 10) / 10)}
             </span>
           </span>
@@ -81,7 +83,7 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
   const numberOfResults = results.length;
 
   return (
-    <main className="bg-white px-5 pb-5 h-auto ">
+    <main className="bg-white dark:bg-black px-5 pb-5 h-auto ">
       <header className="inline-flex flex-row flex-wrap items-center justify-stretch py-5 text-center">
         <a
           href="/"
@@ -102,11 +104,15 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
             id="query"
             required
             maxLength={CONSTANTS.SEARCH.MAX_LENGTH}
-            className="border border-black rounded px-1 "
+            className="border border-black dark:border-gray-400 rounded px-1 "
           />
           <input
             type="submit"
-            className="bg-blue-300 hover:bg-blue-500 hover:text-white active:bg-blue-700 ml-2 px-2 py-0.5 rounded"
+            className="bg-blue-300 dark:bg-rose-500
+                        hover:bg-blue-500 dark:hover:bg-rose-600
+                        hover:text-white dark:hover:text-current
+                        active:bg-blue-700 dark:active:bg-rose-800
+                        ml-2 px-2 py-0.5 rounded"
             value={CONSTANTS.SEARCH.SEARCH_BUTTON_LABEL}
           />
         </form>
