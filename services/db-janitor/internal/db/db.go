@@ -32,7 +32,7 @@ func CleanupDatabase(db *sql.DB) error {
 
 	err = refreshDatabaseDomainBlacklist(tx)
 	if err != nil {
-		log.Fatalf("refresh domain blacklist failed: %v", err)
+		log.Printf("WARNING: refresh domain blacklist failed: %v", err)
 	}
 
 	log.Println("Successfully completed domain blacklist refresh")
@@ -40,7 +40,7 @@ func CleanupDatabase(db *sql.DB) error {
 
 	err = purgeDatabase(tx)
 	if err != nil {
-		return fmt.Errorf("Purge sites and pages from blacklisted domains failed: %v", err)
+		log.Printf("WARNING: Purge sites and pages from blacklisted domains failed: %v", err)
 	}
 
 	err = tx.Commit()

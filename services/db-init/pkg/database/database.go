@@ -8,7 +8,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/2Geigh/Ohana/db-init/pkg/models"
 	_ "github.com/lib/pq"
 	"github.com/pressly/goose/v3"
 )
@@ -20,120 +19,7 @@ var (
 	embedMigrations embed.FS
 )
 
-func DequeueLink(
-	db *sql.DB,
-	mu *sync.Mutex,
-) (
-	models.Url,
-	error,
-) {
-	var (
-		id   int64
-		link models.Url
-	)
-
-	mu.Lock()
-	defer mu.Unlock()
-
-	tx, err := db.Begin()
-	if err != nil {
-		return link, fmt.Errorf("begin transaction failed: %w", err)
-	}
-	defer tx.Rollback()
-
-	err = tx.QueryRow(
-		`SELECT id, hyperlink
-		FROM crawler_queue
-		ORDER BY date_added ASC
-		LIMIT 1;`,
-	).Scan(
-		&id,
-		&link,
-	)
-	if err == sql.ErrNoRows {
-		return link, nil
-	}
-	if err != nil {
-		return link, fmt.Errorf("rows: %w", err)
-	}
-
-	_, err = tx.Exec(
-		`DELETE FROM crawler_queue
-		WHERE id = $1`,
-		id,
-	)
-	if err != nil {
-		return link, fmt.Errorf("DELETE %s (id=%d) FROM crawler_queue failed: %w", link, id, err)
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return link, fmt.Errorf("commit transaction failed: %w", err)
-	}
-
-	return link, nil
-}
-
-func EnqueueLinks(
-	urls []models.Url,
-	db *sql.DB,
-	mu *sync.Mutex,
-) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("begin transaction failed: %w", err)
-	}
-	defer tx.Rollback()
-
-	for _, url := range urls {
-		var (
-			isBlacklisted bool
-		)
-
-		isBlacklisted, err = url.GetDomain().IsBlacklisted(db, &DatabaseMu)
-		if err != nil {
-			return fmt.Errorf("determine url blacklist status failed: %w", err)
-		}
-
-		if isBlacklisted {
-			continue
-		}
-
-		stmt, err := tx.Prepare(
-			`INSERT INTO crawler_queue (
-				hyperlink, fqdn
-			) VALUES ($1, $2)
-			ON CONFLICT (hyperlink) DO NOTHING;`,
-		)
-		if err != nil {
-			return fmt.Errorf("prepare statement failed: %w", err)
-		}
-
-		_, err = stmt.Exec(url.SanitizeToEnqueue(), url.GetDomain().GetFQDN())
-		if err != nil {
-			return fmt.Errorf("execute statement failed: %w", err)
-		}
-
-		err = stmt.Close()
-		if err != nil {
-			return fmt.Errorf("close statement failed: %w", err)
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("commit transaction failed: %w", err)
-	}
-
-	return nil
-}
-
-func InitializeDB(
-	db **sql.DB,
-) error {
+func InitializeDB(db **sql.DB) error {
 	log.Println("Connecting to Postgresql...")
 
 	var (

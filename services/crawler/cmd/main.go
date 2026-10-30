@@ -1,20 +1,20 @@
 package main
 
 import (
+	"database/sql"
 	"log"
-	"strings"
+	"math"
+	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/2Geigh/Ohana/crawler/internal/connection"
 	"github.com/2Geigh/Ohana/crawler/internal/crawling"
+	"github.com/2Geigh/Ohana/crawler/internal/queue"
 	"github.com/2Geigh/Ohana/db-init/pkg/database"
 	"github.com/2Geigh/Ohana/db-init/pkg/models"
-)
 
-const (
-	MAXIMUM_NUMBER_OF_CRAWLERS = 20
+	_ "github.com/ncruces/go-sqlite3/driver"
 )
 
 func init() {
@@ -23,14 +23,26 @@ func init() {
 		log.Fatalf("connect to database failed: %v", err)
 	}
 
+	log.Println("Connecting to embedded queue...")
+	log.Println("Successfully connected to embedded queue.")
+
+	connection.Queue, err = sql.Open("sqlite3", connection.QUEUE_SQLITE_CONNECTION_PATH)
+	if err != nil {
+		log.Fatalf("connect to embedded queue failed: %v", err)
+	}
+
+	log.Println("Migrating embedded queue...")
+
+	err = queue.Migrate(connection.Queue)
+	if err != nil {
+		log.Fatalf("migrate embedded queue failed: %v", err)
+	}
+
+	log.Println("Successfully migrated embedded queue.")
 	log.Println("Enqueing seed URLs...")
 
 	for _, url := range crawling.SeedURLs {
-		err := database.EnqueueLinks(
-			[]models.Url{url},
-			connection.DB,
-			&database.DatabaseMu,
-		)
+		err := queue.Enqueue(connection.Queue, &connection.QueueMu, []models.Url{url}, 999999999)
 		if err != nil {
 			log.Fatalf("enqueue seed URLs failed: %v", err)
 		}
@@ -43,23 +55,31 @@ func main() {
 	var (
 		wg sync.WaitGroup
 
-		crawlerMu sync.Mutex
+		crawlIteration atomic.Int64
 
-		crawlerQueues    crawling.Queues = make(crawling.Queues)
-		numberOfCrawlers atomic.Int64
-		crawlIteration   atomic.Int64
-		crawlerId        int64 = 0
+		MAXIMUM_NUMBER_OF_CRAWLERS = 1
 	)
 
+	defer connection.DB.Close()
+
+	log.Printf("%d logical CPUs found for the current process", runtime.NumCPU())
+
+	MAXIMUM_NUMBER_OF_CRAWLERS = int(math.Floor(float64(
+		runtime.NumCPU()) / 2,
+	))
+
+	log.Printf("Instantiating %d crawler worker processes...", MAXIMUM_NUMBER_OF_CRAWLERS)
+
 	wg.Go(func() {
-		for true {
-			if crawlIteration.Load() < 5 {
+		for {
+			if crawlIteration.Load() < 10 {
 				continue
 			}
 
 			err := crawling.CleanCrawlerQueue(
+				connection.Queue,
+				&connection.QueueMu,
 				connection.DB,
-				&database.DatabaseMu,
 			)
 			if err != nil {
 				log.Fatalf("clean database crawler queue failed: %v", err)
@@ -69,64 +89,23 @@ func main() {
 		}
 	})
 
-	for true {
-
-		newLink, err := database.DequeueLink(connection.DB, &database.DatabaseMu)
-		if err != nil {
-			log.Printf("dequeue links from database crawler queue failed: %v", err)
-			time.Sleep(10 * time.Second)
-			continue
-		}
-
-		fqdn := newLink.GetDomain().GetFQDN()
-
-		crawlerMu.Lock()
-		_, isDomainOwnedByACrawler := crawlerQueues[fqdn]
-		crawlerMu.Unlock()
-
-		if isDomainOwnedByACrawler {
-			crawlerMu.Lock()
-			crawlerQueues[fqdn] = append(crawlerQueues[fqdn], newLink)
-			crawlerMu.Unlock()
-			continue
-		}
-
-		if strings.TrimSpace(string(fqdn)) != "" {
-			crawlerMu.Lock()
-			crawlerQueues[fqdn] = []models.Url{newLink}
-			crawlerMu.Unlock()
-		}
-
-		if numberOfCrawlers.Load() >= MAXIMUM_NUMBER_OF_CRAWLERS {
-			continue
-		}
-
+	for n := range MAXIMUM_NUMBER_OF_CRAWLERS {
 		wg.Go(func() {
-			numberOfCrawlers.Add(1)
-			defer numberOfCrawlers.Add(-1)
-
-			crawlerId += 1
-
+			connection.QueueMu.Lock()
 			crawler := crawling.Crawler{
-				Id:               crawlerId,
-				Queues:           &crawlerQueues,
-				Fqdn:             fqdn,
-				CrawlerMu:        &crawlerMu,
-				Db:               connection.DB,
-				DbMu:             &database.DatabaseMu,
-				NumberOfCrawlers: &numberOfCrawlers,
+				Id:               n,
+				Queue:            connection.Queue,
+				CrawlerMu:        &connection.QueueMu,
+				GlobalDb:         connection.DB,
+				GlobalDbMu:       &database.DatabaseMu,
+				NumberOfCrawlers: MAXIMUM_NUMBER_OF_CRAWLERS,
 				CrawlIteration:   &crawlIteration,
 			}
+			connection.QueueMu.Unlock()
 
 			crawler.Crawl()
-
-			crawlerMu.Lock()
-			delete(crawlerQueues, fqdn)
-			crawlerMu.Unlock()
 		})
 	}
-
-	defer connection.DB.Close()
 
 	wg.Wait()
 }

@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -16,8 +17,6 @@ type (
 	Webpage struct {
 		ResponseBody string `json:"response_body"`
 
-		FullDomain        Domain    `json:"full_domain"`
-		Fqdn              Domain    `json:"fqdn"`
 		Url               Url       `json:"Url"`
 		Title             string    `json:"title"`
 		Description       string    `json:"description"`
@@ -35,9 +34,29 @@ type (
 
 func (page *Webpage) Save(
 	db *sql.DB,
+	mu *sync.Mutex,
+	max_number_of_websites int,
 ) error {
+	mu.Lock()
+	defer mu.Unlock()
 
-	if len(page.FullDomain) == 0 {
+	var numberOfWebsites int64
+	err := db.QueryRow(
+		`SELECT count(*)
+		FROM sites;`,
+	).Scan(&numberOfWebsites)
+	if err != nil {
+		return fmt.Errorf("SELECT count(*) FROM sites failed: %w", err)
+	}
+
+	if numberOfWebsites > int64(max_number_of_websites) {
+		err = fmt.Errorf("Maximum quantity of websites in database reached")
+
+		log.Fatal(err)
+		return err
+	}
+
+	if len(page.Url.GetDomain()) == 0 {
 		return fmt.Errorf("domain empty")
 	}
 
@@ -63,7 +82,7 @@ func (page *Webpage) Save(
 		`SELECT id 
 		FROM sites
 		WHERE full_domain = $1;`,
-		page.FullDomain,
+		page.Url.GetDomain(),
 	).Scan(&siteId)
 	if err == sql.ErrNoRows {
 		isSiteInDatabase = false
@@ -104,8 +123,8 @@ func (page *Webpage) Save(
 		}
 
 		err = stmt.QueryRow(
-			page.Fqdn,
-			page.FullDomain,
+			page.Url.GetDomain().GetFQDN(),
+			page.Url.GetDomain(),
 			time.Now(),
 			time.Now(),
 			page.IsFediverseNode,

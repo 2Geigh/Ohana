@@ -6,33 +6,44 @@ A language-specific search engine for the living web.
 
 This search engine is designed to do two things:
 
-1. Facilitate search beyond mainstream platforms (Reddit, Weibo, _etc_) into the re-fledgling [indie web](https://en.wikipedia.org/wiki/IndieWeb) (_e.g._ personal websites, Neocities pages, niche forums, _etc_).
+1. Facilitate search beyond mainstream platforms (Reddit, Weibo, _etc_) into the
+   re-fledgling [indie web](https://en.wikipedia.org/wiki/IndieWeb) (_e.g._
+   personal websites, Neocities pages, niche forums, _etc_).
 2. Allow for language-specific filtering of search results.
 
-In other words, this tool helps you browse the living web in your target language.
+In other words, this tool helps you browse the living web in your target
+language.
 
-## Architecture
+## Timeline
 
-### Crawler
+### v 1.0
 
-Implemented in [Go](https://go.dev).
+- [x] Fully functional web crawler
+  - [x] Non-pornographic domain blocklist
+  - [x] Upper bounds on site quantity based on arbitrary target
+  - [x] Embedded SQLite queue for BFS
+  - [x] Give embedded SQLite queue a Docker volume for data persistence across restarts
+  - [x] Move domain-based crawler-specific enqueing from RAM to SQLite (perhaps add a column to the queue with the crawler ID the domain belongs to for tracking purposes?) 
+- [ ] Implement lexical search via pg_textsearch
+- [ ] Implement a minimal client-facing Spring Boot service to query the database and display search results
 
-### Database
+### v 2.0
 
-Implemented with [Postgresql](https://postgresql.org).
+- [ ] Basic ranking engine functionality
+- [ ] Crawler upgrades
+  - [ ] Pornographic domain blocklist
+  - [ ] Source domain blacklist from [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community)
+  - [ ] Upper bounds on site quantity based on "indie-ness" ranking
+- [ ] Client
+  - [ ] Divide search results into multiple pages like Google
+  - [ ] Add CSS styling
+  - [ ] Add "recently added" section to homepage
+  - [ ] Add "most visited" section to webpage
+  - [ ] Add lightmode-darkmode
+  - [ ] Add "featured website" section
+  - [ ] Add privacy policy
+  - [ ] Add manifesto/about page
 
-### Indexer
+### v 3.0
 
-Implemented in [Java]("https://java.com") [25](https://openjdk.org/projects/jdk/25/) via [Maven](https://maven.apache.org/).
-
-### Ranking Engine
-
-Implemented in [Python](https://python.org).
-
-### Query Engine
-
-Implemented in [Java]("https://java.com") [25](https://openjdk.org/projects/jdk/25/) using [Spring](https://spring.io/) via [Gradle](https://gradle.org/).
-
-### Client
-
-Implemented in [PHP](https://php.net).
+    TBD

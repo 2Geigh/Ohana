@@ -45,47 +45,44 @@ func (d Domain) GetFQDN() Domain {
 
 func (d Domain) HasBeenRequestedTooRecently(
 	politeness_interval time.Duration,
-	databaseMu *sync.Mutex,
-	db *sql.DB,
+	queue *sql.DB,
+	mu *sync.Mutex,
 ) (
 	bool,
 	error,
 ) {
 	var (
-		fqdn        = d.GetFQDN()
-		lastCrawled time.Time
+		// timestapm in Unix time
+		lastCrawled int64
 
 		// better to be too
 		// polite than not nice enough
 		// to an API
-		hasBeenCrawledTooRecently bool = true
+		hasBeenRequestedTooRecently bool = true
 	)
 
-	databaseMu.Lock()
-	defer databaseMu.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 
-	stmt, err := db.Prepare(
-		`SELECT date_last_crawled
-		FROM sites
-		WHERE fqdn = $1;`,
-	)
-	if err != nil {
-		return hasBeenCrawledTooRecently, fmt.Errorf("prepare stmt failed: %w", err)
-	}
-	defer stmt.Close()
+	err := queue.QueryRow(
+		`SELECT time_last_requested
+		FROM domains
+		WHERE fqdn = ?;`,
+		d.GetFQDN(),
+	).Scan(&lastCrawled)
 
-	err = stmt.QueryRow(fqdn).Scan(&lastCrawled)
 	if err == sql.ErrNoRows {
-		hasBeenCrawledTooRecently = false
+		hasBeenRequestedTooRecently = false
+		return hasBeenRequestedTooRecently, nil
 	} else if err != nil {
-		return hasBeenCrawledTooRecently, fmt.Errorf("execute stmt failed: %w", err)
+		return hasBeenRequestedTooRecently, fmt.Errorf("execute stmt failed: %w", err)
 	}
 
-	if time.Since(lastCrawled) > politeness_interval {
-		hasBeenCrawledTooRecently = false
-	}
+	hasBeenRequestedTooRecently = time.Since(
+		time.Unix(lastCrawled, 0),
+	) < politeness_interval
 
-	return hasBeenCrawledTooRecently, nil
+	return hasBeenRequestedTooRecently, nil
 }
 
 func (d Domain) IsBlacklisted(
