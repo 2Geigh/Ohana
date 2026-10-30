@@ -35,11 +35,9 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
 
   const results: SearchResult[] = await sql`
         SELECT
-          id,
           pdb.score(id) AS score,
           title,
           description,
-          page_text,
           link
         FROM pages
         WHERE
