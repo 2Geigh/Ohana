@@ -5,8 +5,8 @@ import { connection } from "next/server";
 import sql from "@/lib/db/db";
 
 type SearchResult = {
-  id: Number;
-  score: Number;
+  id: number;
+  score: number;
   title: string;
   description: string;
   page_text: string;
@@ -68,7 +68,9 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
           <p>{result.description}</p>
           <span className="text-gray-500 w-full flex flex-row justify-between items-end mt-2 select-none">
             <span className="italic select-text">{result.link}</span>
-            <span className="text-gray-300">{String(result.score)}</span>
+            <span className="text-gray-300">
+              {String(Math.round(result.score * 10) / 10)}
+            </span>
           </span>
         </a>
       </li>
@@ -81,8 +83,8 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
   const numberOfResults = results.length;
 
   return (
-    <main className="bg-white px-5 pb-5 h-auto min-h-full">
-      <header className="flex flex-row justify-start items-center py-5">
+    <main className="bg-white px-5 pb-5 h-auto ">
+      <header className="inline-flex flex-row flex-wrap items-center justify-stretch py-5 text-center">
         <a
           href="/"
           className="flex flex-row justify-start items-end leading-none mr-4"
@@ -90,15 +92,11 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
           <h1 className="font-serif font-lighter tracking-wide leading-none uppercase text-3xl">
             Ohana
           </h1>
-          {/* <span className="font-sans leading-none"> */}
-          {/*   Surf the <em className="underline tracking-wide">living</em> web */}
-          {/*   <noscript> without Javascript</noscript>. */}
-          {/* </span> */}
         </a>
         <form
           action="/search"
           method="GET"
-          className=" flex flex-row justify-stretch dark:border-gray-400 p-1.5 box-border "
+          className=" flex flex-row justify-stretch dark:border-gray-400 p-1.5 text-left"
         >
           <input
             type="text"

@@ -21,22 +21,30 @@ const Footer: FC = async () => {
       : `2026 - ${new Date().getFullYear()}`;
 
   return (
-    <footer className="py-6 inline text-center bg-white text-gray-800 font-serif">
-      Made with 💙 in 🇨🇦 by{" "}
-      <a className="underline text-blue-800" href="https://nicholasgarcia.com">
-        Nicholas Garcia
-      </a>
-      , {yearText}.
-    </footer>
+    <div className="flex flex-col justify-between w-full items-stretch">
+      <hr className="text-gray-400" />
+      <footer className="w-full py-6 px-5 inline text-center bg-white text-gray-800 font-serif bottom-0">
+        Made with 💙 in 🇨🇦 by{" "}
+        <a
+          className="underline text-blue-800"
+          href="https://nicholasgarcia.com"
+        >
+          Nick Garcia
+        </a>
+        , {yearText}.
+      </footer>
+    </div>
   );
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full bg-red-500">
-      <body className="flex flex-col justify-between items-stretch h-full border-r-orange-500">
+    <html
+      lang="en"
+      className="h-full bg-white dark:bg-black flex flex-col justify-stretch"
+    >
+      <body className="flex flex-col justify-between items-stretch min-h-full border-r-orange-500">
         {children}
-        <hr className="text-gray-400" />
         <Footer />
       </body>
     </html>
