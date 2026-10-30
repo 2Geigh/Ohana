@@ -104,6 +104,7 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
             id="query"
             required
             maxLength={CONSTANTS.SEARCH.MAX_LENGTH}
+            value={query}
             className="border border-black dark:border-gray-400 rounded px-1 "
           />
           <input
