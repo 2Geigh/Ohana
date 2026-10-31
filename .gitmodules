@@ -1,0 +1,3 @@
+[submodule "services/db-janitor/internal/db/data/porn-domains"]
+	path = services/db-janitor/internal/db/data/porn-domains
+	url = https://github.com/Bon-Appetit/porn-domains.git
