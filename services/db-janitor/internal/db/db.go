@@ -5,9 +5,8 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"io"
+	"io/fs"
 	"log"
-	"net/http"
 	"strings"
 	"sync"
 
@@ -17,7 +16,7 @@ import (
 var (
 	DB *sql.DB
 
-	//go:embed data/*.txt
+	//go:embed data/*
 	embedData embed.FS
 )
 
@@ -159,36 +158,19 @@ func refreshLocalDomainBlacklist(tx *sql.Tx) error {
 func refreshPornographicDomains(tx *sql.Tx) error {
 	log.Println("Starting refresh of remote pornographic domain blacklist!")
 
-	const (
-		// Source repository: https://github.com/Bon-Appetit/porn-domains
-		pornDomainListUrl string = "https://test@raw.githubusercontent.com/Bon-Appetit/porn-domains/refs/heads/main/block.570f9ed0d2.dd0b4e.txt"
-	)
-
-	pornDomainList := struct {
-		asBytes []byte
-		asText  string
-	}{}
-
-	log.Println("GETting remote pornographic domain blacklist...")
-	resp, err := http.Get(pornDomainListUrl)
+	log.Println("Opening Bon-Appetit/porn-domains blocklist...")
+	matches, err := fs.Glob(embedData, "data/porn-domains/block.*.txt")
 	if err != nil {
-		return fmt.Errorf("GET porn domain list failed: %w", err)
+		return fmt.Errorf("couldn't find blocklist: %w", err)
 	}
-	log.Println("GET remote pornographic domain blacklist complete")
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("%s", resp.Status)
+	if len(matches) < 1 {
+		return fmt.Errorf("blockfile not found: %w", err)
 	}
 
-	log.Println("Reading remote pornographic domain blacklist...")
-	pornDomainList.asBytes, err = io.ReadAll(resp.Body)
+	blocklist, err := embedData.ReadFile(matches[0])
 	if err != nil {
-		return fmt.Errorf("read GET response failed: %w", err)
+		return fmt.Errorf("read blockfile failed: %w", err)
 	}
-	defer resp.Body.Close()
-	log.Println("Finished reading remote pornographic domain blacklist")
-
-	pornDomainList.asText = string(pornDomainList.asBytes)
 
 	stmt, err := tx.Prepare(
 		`INSERT INTO domain_blacklist (domain) VALUES ($1);`,
@@ -198,7 +180,7 @@ func refreshPornographicDomains(tx *sql.Tx) error {
 	}
 	defer stmt.Close()
 
-	scanner := bufio.NewScanner(strings.NewReader(pornDomainList.asText))
+	scanner := bufio.NewScanner(strings.NewReader(string(blocklist)))
 
 	log.Println("Scanning acquired pornographic domain blacklist...")
 	for scanner.Scan() {
