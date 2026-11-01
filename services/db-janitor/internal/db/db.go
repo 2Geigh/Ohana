@@ -16,8 +16,14 @@ import (
 var (
 	DB *sql.DB
 
-	//go:embed data/*
-	embedData embed.FS
+	//go:embed data/domain_blacklist.txt
+	localBlacklist embed.FS
+
+	//go:embed data/porn-domains/*
+	pornBlacklist embed.FS
+
+	//go:embed data/domain-list-community/data/*
+	communityBlacklist embed.FS
 )
 
 func CleanupDatabase(db *sql.DB) error {
