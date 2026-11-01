@@ -69,6 +69,7 @@ var (
 		models.Url("https://baccyflap.com/noai/"),
 		models.Url("https://baccyflap.com/rsp/"),
 		models.Url("https://bearblog.dev/"),
+		models.Url("https://blogs.hn/"),
 		models.Url("https://bookscorpion.neocities.org/webrings"),
 		models.Url("https://brisray.com/web/webring-list.htm"),
 		models.Url("https://bukmark.club/"),
