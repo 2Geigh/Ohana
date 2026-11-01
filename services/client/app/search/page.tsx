@@ -34,24 +34,18 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
   const startTime = performance.now();
 
   const results: SearchResult[] = await sql`
-        SELECT
-          pdb.score(id) AS score,
-          title,
-          description,
-          link
-        FROM pages
-        WHERE
-          title          ||| ${query!}::text
-          OR description ||| ${query!}::text
-          OR page_text   ||| ${query!}::text
-        ORDER BY
-          CASE
-            WHEN title       ||| ${query!}::text THEN 1
-            WHEN description ||| ${query!}::text THEN 2
-            ELSE 3
-          END ASC,
-          score DESC
-        LIMIT 10;
+                SELECT
+                  pdb.score(id) AS score,
+                  title,
+                  description,
+                  link
+                FROM pages
+                WHERE
+                  title       ||| ${query!}::pdb.boost(2)
+                  OR description ||| ${query!}
+                  OR page_text   ||| ${query!}
+                ORDER BY pdb.score(id) DESC
+                LIMIT 10;
 `;
 
   const ResultsLi: JSX.Element[] = results.map((result) => {
