@@ -24,22 +24,22 @@ language.
   - [x] Embedded SQLite queue for BFS
   - [x] Give embedded SQLite queue a Docker volume for data persistence across restarts
   - [x] Move domain-based crawler-specific enqueing from RAM to SQLite (perhaps add a column to the queue with the crawler ID the domain belongs to for tracking purposes?) 
-- [ ] Implement lexical search via pg_textsearch
-- [ ] Implement a minimal client-facing Spring Boot service to query the database and display search results
+- [x] Implement lexical search via pg_textsearch
+- [x] Implement a minimal client-facing Spring Boot service to query the database and display search results
 
 ### v 2.0
 
 - [ ] Basic ranking engine functionality
 - [ ] Crawler upgrades
-  - [ ] Pornographic domain blocklist
+  - [x] Pornographic domain blocklist
   - [ ] Source domain blacklist from [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community)
   - [ ] Upper bounds on site quantity based on "indie-ness" ranking
 - [ ] Client
   - [ ] Divide search results into multiple pages like Google
-  - [ ] Add CSS styling
+  - [x] Add CSS styling
   - [ ] Add "recently added" section to homepage
   - [ ] Add "most visited" section to webpage
-  - [ ] Add lightmode-darkmode
+  - [x] Add lightmode-darkmode
   - [ ] Add "featured website" section
   - [ ] Add privacy policy
   - [ ] Add manifesto/about page
