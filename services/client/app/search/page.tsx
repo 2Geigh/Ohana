@@ -41,10 +41,10 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
                   link
                 FROM pages
                 WHERE
-                  title       ||| ${query!}::pdb.boost(2)
-                  OR description ||| ${query!}
-                  OR page_text   ||| ${query!}
-                ORDER BY pdb.score(id) DESC
+                  title          &&& ${query!}::pdb.boost(2)
+                  OR description &&& ${query!}::pdb.boost(1.5)
+                  OR page_text   &&& ${query!}
+                ORDER BY pdb.score(id) DESC, id ASC
                 LIMIT 10;
 `;
 
