@@ -54,14 +54,16 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
         <a
           key={result.link}
           href={result.link}
-          className="h-full w-full overflow-ellipsis"
+          className="h-full w-full text-ellipsis"
         >
           <h3 className="font-bold text-blue-800 dark:text-emerald-300 mb-2">
             {result.title}
           </h3>
           <p>{result.description}</p>
           <span className="text-gray-500 dark:text-gray-300 w-full flex flex-row justify-between items-end mt-2 select-none">
-            <span className="italic select-text">{result.link}</span>
+            <span className="italic text-ellipsis break-all select-text max-w-lg">
+              {result.link}
+            </span>
             <span className="text-gray-300 dark:text-gray-500">
               {String(Math.round(result.score * 10) / 10)}
             </span>
