@@ -1,5 +1,4 @@
 import sql from "@/lib/db/db";
-import { connection } from "next/server";
 import postgres from "postgres";
 import { FC, JSX } from "react";
 
@@ -125,10 +124,10 @@ const Catalogue = async () => {
                         LIMIT 4`}
       ></Section>
       <Section
-        title="Most Links"
+        title="Most Visited"
         query={sql`SELECT *
                         FROM pages
-                        ORDER BY cardinality(outlinks) DESC
+                        ORDER BY visits DESC, date_discovered ASC 
                         LIMIT 4;`}
       ></Section>
     </section>
