@@ -69,6 +69,10 @@ const Catalogue = async () => {
   const Section: FC<SectionProps> = async ({ title, query }) => {
     const results: Result[] = await sql`${query}`;
 
+    const MAX_TITLE_LENGTH = 64;
+    const MAX_DESCRIPTION_LENGTH = 64;
+    const MAX_LINK_LENGTH = 32;
+
     const entriesLi: JSX.Element[] = results.map((entry) => (
       <li className="mb-5 flex justify-center items-center" key={entry.link}>
         <a
@@ -77,11 +81,16 @@ const Catalogue = async () => {
           className="w-full h-full flex flex-col justify-between items-stretch"
         >
           <span className="inline-flex overflow-ellipses text-ellipsis text-blue-800 dark:text-emerald-300 font-bold max-w-full">
-            {entry.title}
+            {entry.title.slice(0, MAX_TITLE_LENGTH)}
+            {entry.title.length > MAX_TITLE_LENGTH ? "..." : ""}
           </span>
-          <span className="">{entry.description}</span>
+          <span className="">
+            {entry.description.slice(0, MAX_DESCRIPTION_LENGTH)}
+            {entry.description.length > MAX_DESCRIPTION_LENGTH ? "..." : ""}
+          </span>
           <span className="text-gray-500 dark:text-gray-300 italic overflow-ellipses text-ellipsis break-all select-text max-w-full">
-            {entry.link}
+            {entry.link.slice(0, MAX_LINK_LENGTH)}
+            {entry.link.length > MAX_LINK_LENGTH ? "..." : ""}
           </span>
           <span>{entry.date}</span>
         </a>
