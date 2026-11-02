@@ -3,6 +3,7 @@ import { FC, JSX } from "react";
 import { CONSTANTS } from "../page";
 import { connection } from "next/server";
 import sql from "@/lib/db/db";
+import ResultLink from "./components/ResultLink";
 
 type SearchResult = {
   id: number;
@@ -51,9 +52,9 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
   const ResultsLi: JSX.Element[] = results.map((result) => {
     return (
       <li className="border border-gray-400 my-6 p-3 max-w-xl w-full">
-        <a
+        <ResultLink
           key={result.link}
-          href={result.link}
+          url={result.link}
           className="h-full w-full text-ellipsis"
         >
           <h3 className="font-bold text-blue-800 dark:text-emerald-300 mb-2">
@@ -68,14 +69,13 @@ const Search: FC<SearchProps> = async ({ searchParams }) => {
               {String(Math.round(result.score * 10) / 10)}
             </span>
           </span>
-        </a>
+        </ResultLink>
       </li>
     );
   });
 
   const searchDuration = performance.now() - startTime;
 
-  console.log(results);
   const numberOfResults = results.length;
 
   return (
