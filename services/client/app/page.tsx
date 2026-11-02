@@ -14,7 +14,7 @@ const Hero: FC = () => {
   return (
     <section
       id="hero"
-      className="flex flex-col justify-center items-center bg-red-500 min-h-1/2 w-full"
+      className="flex flex-col justify-center items-center h-1/2 max-h-64 w-full"
     >
       <header className="text-center mb-8 select-none">
         <h1 className="text-5xl font-serif font-normal tracking-wide uppercase mb-1 dark:text-gray-200">
@@ -70,36 +70,57 @@ const Catalogue = async () => {
     const results: Result[] = await sql`${query}`;
 
     const entriesLi: JSX.Element[] = results.map((entry) => (
-      <li>
-        <a href="https://example.com">
-          <span>{entry.title}</span>
-          <span>{entry.description}</span>
-          <span>{entry.link}</span>
+      <li className="mb-5 flex justify-center items-center" key={entry.link}>
+        <a
+          href={entry.link}
+          target="_blank"
+          className="w-full h-full flex flex-col justify-between items-stretch"
+        >
+          <span className="inline-flex overflow-ellipses text-ellipsis text-blue-800 dark:text-emerald-300 font-bold max-w-full">
+            {entry.title}
+          </span>
+          <span className="">{entry.description}</span>
+          <span className="text-gray-500 dark:text-gray-300 italic overflow-ellipses text-ellipsis break-all select-text max-w-full">
+            {entry.link}
+          </span>
           <span>{entry.date}</span>
         </a>
       </li>
     ));
 
     return (
-      <section className="max-w-80 bg-blue-900">
-        <h3 className="font-serif text-xl ">{title}</h3>
-        <ul>{entriesLi}</ul>
+      <section className="max-w-96 w-full m-4 border border-gray-400 p-5">
+        <h3 className="font-serif font-bold text-2xl mb-6">{title}</h3>
+        <ul className="flex flex-col justify-start items-stretch">
+          {entriesLi}
+        </ul>
       </section>
     );
   };
 
   return (
-    <section id="catalogue" className="bg-blue-600 w-full">
+    <section
+      id="catalogue"
+      className="flex flex-row justify-evenly items-stretch w-full max-w-3xl"
+    >
       <Section
         title="Recently Added"
         query={sql`SELECT title, description, link, date_discovered
-                                FROM pages
-                                ORDER BY date_discovered DESC
-                                LIMIT 4`}
+                        FROM pages
+                        WHERE
+                                title IS NOT NULL
+                                AND TRIM(title) <> ''
+                                AND description IS NOT NULL
+                                AND TRIM(description) <> ''
+                        ORDER BY date_discovered DESC
+                        LIMIT 4`}
       ></Section>
       <Section
-        title="Most Popular"
-        query={sql`SELECT * FROM pages LIMIT 4;`}
+        title="Most Links"
+        query={sql`SELECT *
+                        FROM pages
+                        ORDER BY cardinality(outlinks) DESC
+                        LIMIT 4;`}
       ></Section>
     </section>
   );
