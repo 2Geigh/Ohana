@@ -37,8 +37,8 @@ language.
 - [ ] Client
   - [ ] Divide search results into multiple pages like Google
   - [x] Add CSS styling
-  - [ ] Add "recently added" section to homepage
-  - [ ] Add "most visited" section to webpage
+  - [x] Add "recently added" section to homepage
+  - [x] Add "most visited" section to webpage
   - [x] Add lightmode-darkmode
   - [ ] Add "featured website" section
   - [ ] Add privacy policy
