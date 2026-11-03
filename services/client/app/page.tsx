@@ -13,7 +13,7 @@ const Hero: FC = () => {
   return (
     <section
       id="hero"
-      className="flex flex-col justify-center items-center h-screen max-h-64 w-full px-5 bg-red-500"
+      className="flex flex-col justify-center items-center h-screen max-h-64 w-full px-5 bg-red-500 opacity-50"
     >
       <header className="text-center mb-8 select-none">
         <h1 className="text-5xl font-serif font-normal tracking-wide uppercase mb-1 dark:text-gray-200">
@@ -97,7 +97,7 @@ const Catalogue = async () => {
     ));
 
     return (
-      <section className="max-w-80 w-full m-5 border border-gray-400 p-5 bg-amber-200">
+      <section className="portrait:max-w-80 landscape:max-w-lg w-full m-5 border border-gray-400 p-5 bg-amber-200 ">
         <h3 className="font-serif font-bold text-2xl mb-6">{title}</h3>
         <ul className="flex flex-col justify-start items-stretch">
           {entriesLi}
@@ -109,7 +109,7 @@ const Catalogue = async () => {
   return (
     <section
       id="catalogue"
-      className="flex flex-row justify-center flex-wrap items-stretch w-full bg-amber-300"
+      className="flex flex-row justify-center flex-wrap items-stretch w-full bg-amber-300 opacity-50"
     >
       <Section
         title="Recently Added"
@@ -136,7 +136,7 @@ const Catalogue = async () => {
 
 export default function Home() {
   return (
-    <main className="min-h-full flex flex-col items-center bg-blue-500 dark:bg-black">
+    <main className="h-full flex flex-col justify-center items-center bg-blue-500 dark:bg-black opacity-50">
       <Hero />
       <Catalogue />
     </main>
