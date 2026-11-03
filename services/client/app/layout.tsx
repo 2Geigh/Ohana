@@ -48,8 +48,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className="h-full bg-white dark:bg-black flex flex-col justify-stretch text-black dark:text-white"
     >
-      <body className="flex flex-col justify-between items-stretch min-h-full border-r-orange-500">
-        {children}
+      <body className="flex flex-col justify-between min-h-full border-r-orange-500">
+        <div className="h-auto bg-emerald-400">{children}</div>
         <Footer />
       </body>
     </html>
