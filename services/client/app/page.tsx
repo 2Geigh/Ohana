@@ -9,7 +9,12 @@ export const CONSTANTS = {
   },
 };
 
-const Hero: FC = () => {
+const Hero: FC = async () => {
+  const [{ numberOfSites }] =
+    await sql`SELECT count(*) AS "numberOfSites" FROM sites;`;
+
+  const numberOfSitesRounded = Math.floor(numberOfSites / 1000) * 1000;
+
   return (
     <section
       id="hero"
@@ -20,8 +25,8 @@ const Hero: FC = () => {
           Ohana
         </h1>
         <h2 className="font-sans text-lg leading-tight dark:text-gray-200 dark:font-light">
-          Surf the <em className="underline tracking-wide">living</em> web
-          <noscript> without Javascript</noscript>.
+          Discover +{numberOfSitesRounded.toLocaleString()} indie websites
+          <noscript> (without Javascript)</noscript>.
         </h2>
       </header>
 
